@@ -1,40 +1,34 @@
-import { Button } from '@heroui/button';
-import tablaClientes from '../../../components/clientes/tablaClientes';
-import { LogOut } from 'lucide-react';
 "use client";
 
-// ==================== FUNCIón CERRAR SESIÓN ====================
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    router.replace("/"); // Redirige al home
-  };
+import { logout } from "@/app/auth-actions";
+import TablaClientes from "@/components/clientes/tablaClientes";
+import { Button } from "@heroui/button";
+import { LogOut } from "lucide-react";
 
 export default function PatientsPage() {
+  
+  // Función para cerrar sesión desde el cliente
+  const handleLogout = async () => {
+    await logout();
+  };
+
   return (
-    <div className="flex justify-center">
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-4xl font-bold text-balance mb-3 bg-linear-to-r from-blue-500 to-blue-300 bg-clip-text text-transparent">
-              Panel de Administración
-            </h1>
-            <p className="text-gray-600 text-lg">
-              Gestiona servicios, horarios y disponibilidad
-            </p>
-          </div>
-          <Button
-            className="gap-2"
-            color="danger"
-            variant="flat"
-            onPress={handleLogout}
-          >
-            <LogOut className="w-4 h-4" />
-            Salir
-          </Button>
-        </div>
+    <div className="flex flex-col gap-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold">Gestión de Pacientes</h1>
+        {/* Botón opcional si quieres tener logout dentro de la página además del navbar */}
+        <Button 
+          color="danger" 
+          variant="flat" 
+          startContent={<LogOut size={18} />}
+          onPress={handleLogout}
+        >
+          Cerrar Sesión
+        </Button>
       </div>
 
-      <tablaClientes />
+      {/* Renderizamos el componente de la tabla */}
+      <TablaClientes />
     </div>
   );
 }
