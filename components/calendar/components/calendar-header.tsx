@@ -66,7 +66,7 @@ export function CalendarHeader() {
                 onPress={() => setCreateDialogOpen(true)}
               >
                 <Plus className="size-4" />
-                <span className="hidden lg:inline">Nueva reserva manual</span>
+                <span className="hidden lg:inline">Agregar turno</span>
               </Button>
             </div>
           </div>

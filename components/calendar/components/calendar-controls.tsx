@@ -198,7 +198,7 @@ export function CalendarControls() {
               <div>
                 <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
                   <NotepadText className="size-4 text-default-500" />
-                  Estados de reservas
+                  Estados de turnos
                 </h4>
                 <div className="flex flex-col gap-1">
                   {/* Botón: TODOS */}
@@ -239,7 +239,7 @@ export function CalendarControls() {
                   >
                     <div className="flex items-center gap-2.5">
                       <CircleDot className="size-4 text-yellow-500" />
-                      <span className="text-sm">Pendiente (Seña Paga)</span>
+                      <span className="text-sm">Pendiente</span>
                     </div>
                     {statusFilter === "reservado" && (
                       <CheckIcon className="size-4 text-primary" />

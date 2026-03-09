@@ -9,13 +9,13 @@ import {
   endOfWeek,
 } from "date-fns";
 
-import { createClient } from "@/utils/supabase/server";
+// Cambiado a cliente de navegador para evitar errores de Promise en Client Components
+import { createClient } from "@/utils/supabase/client"; 
 import { CalendarEvent } from "@/types/types";
 
 // Inicializar cliente Supabase
 const supabase = createClient();
 
-// Definimos los tipos de filtro posibles
 export type CalendarStatusFilter =
   | "all"
   | "confirmado"
@@ -24,15 +24,11 @@ export type CalendarStatusFilter =
 
 interface CalendarState {
   currentWeekStart: Date;
-  events: CalendarEvent[]; // Lista de eventos cargados
+  events: CalendarEvent[];
   isLoading: boolean;
-
-  // Filtros
   startHour: number;
   endHour: number;
   statusFilter: CalendarStatusFilter;
-
-  // Acciones
   goToNextWeek: () => void;
   goToPreviousWeek: () => void;
   goToToday: () => void;
@@ -40,7 +36,6 @@ interface CalendarState {
   setStartHour: (hour: number) => void;
   setEndHour: (hour: number) => void;
   setStatusFilter: (filter: CalendarStatusFilter) => void;
-
   fetchEvents: () => Promise<void>;
   getCurrentWeekEvents: () => CalendarEvent[];
   getWeekDays: () => Date[];
@@ -101,34 +96,42 @@ export const useCalendarStore = create<CalendarState>()(
               `
               id,
               reserva_fecha,
+              reserva_hora,
               estado,
               notas,
-              servicio:servicios!inner(nombre),
-              horario:horarios_servicio!inner(hora_inicio, hora_fin),
-              perfil:perfiles!inner(nombre, apellido)
+              paciente:pacientes(nombre, apellido)
             `,
             )
             .gte("reserva_fecha", startDate)
             .lte("reserva_fecha", endDate)
-            // Traemos todos los visibles, el filtrado fino se hace en memoria (getCurrentWeekEvents)
             .in("estado", ["reservado", "confirmado", "cancelado"]);
 
           if (error) throw error;
 
-          const mappedEvents: CalendarEvent[] = (data || []).map((r: any) => ({
-            id: r.id,
-            title: r.servicio.nombre,
-            startTime: r.horario.hora_inicio.slice(0, 5),
-            endTime: r.horario.hora_fin.slice(0, 5),
-            date: r.reserva_fecha,
-            participants: [`${r.perfil.nombre} ${r.perfil.apellido}`],
-            status: r.estado as CalendarEvent["status"],
-            description: r.notas,
-          }));
+          const mappedEvents: CalendarEvent[] = (data || []).map((r: any) => {
+            const nombreCompleto = r.paciente 
+              ? `${r.paciente.nombre} ${r.paciente.apellido}` 
+              : "Paciente Desconocido";
+
+            // Cálculo de hora de fin (asumiendo 1 hora de duración para la UI)
+            const [hour, minute] = r.reserva_hora.split(":").map(Number);
+            const endTime = `${(hour + 1).toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`;
+
+            return {
+              id: r.id,
+              title: nombreCompleto, // El título ahora es el nombre del paciente
+              startTime: r.reserva_hora.slice(0, 5),
+              endTime: endTime,
+              date: r.reserva_fecha,
+              participants: [nombreCompleto],
+              status: r.estado as CalendarEvent["status"],
+              description: r.notas,
+            };
+          });
 
           set({ events: mappedEvents, isLoading: false });
         } catch (error) {
-          alert("Error fetching events: " + error);
+          console.error("Error fetching events:", error);
           set({ isLoading: false });
         }
       },
@@ -136,7 +139,6 @@ export const useCalendarStore = create<CalendarState>()(
       getCurrentWeekEvents: () => {
         const { events, statusFilter } = get();
 
-        // Aplicar filtro de estado en memoria
         if (statusFilter === "all") {
           return events;
         }
