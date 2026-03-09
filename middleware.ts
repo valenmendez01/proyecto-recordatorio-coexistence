@@ -1,31 +1,49 @@
-// middleware.ts
-import { NextRequest, NextResponse } from "next/server";
-import { decrypt } from "@/app/lib/session";
-import { cookies } from "next/headers";
+import { createServerClient } from '@supabase/ssr'
+import { NextResponse, type NextRequest } from 'next/server'
 
-const protectedRoutes = ["/", "/movimientos", "/crypto"];
-// Agregamos /register a las rutas públicas
-const publicRoutes = ["/login", "/register"]; 
+export async function middleware(request: NextRequest) {
+  let response = NextResponse.next({
+    request: {
+      headers: request.headers,
+    },
+  })
 
-export default async function middleware(req: NextRequest) {
-  const path = req.nextUrl.pathname;
-  const isProtectedRoute = protectedRoutes.includes(path);
-  const isPublicRoute = publicRoutes.includes(path);
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll()
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => request.cookies.set(name, value))
+          response = NextResponse.next({
+            request,
+          })
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options)
+          )
+        },
+      },
+    }
+  )
 
-  const cookie = (await cookies()).get("session")?.value;
-  const session = cookie ? await decrypt(cookie).catch(() => null) : null;
+  const { data: { user } } = await supabase.auth.getUser()
 
-  if (isProtectedRoute && !session) {
-    return NextResponse.redirect(new URL("/login", req.nextUrl));
+  // Proteger rutas de dashboard
+  if (!user && !request.nextUrl.pathname.startsWith('/login')) {
+    return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  if (isPublicRoute && session) {
-    return NextResponse.redirect(new URL("/", req.nextUrl));
+  // Redirigir si ya está logueado
+  if (user && request.nextUrl.pathname.startsWith('/login')) {
+    return NextResponse.redirect(new URL('/', request.url))
   }
 
-  return NextResponse.next();
+  return response
 }
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|.*\\.png$).*)"],
-};
+  matcher: ['/((?!api|_next/static|_next/image|.*\\.png$).*)'],
+}

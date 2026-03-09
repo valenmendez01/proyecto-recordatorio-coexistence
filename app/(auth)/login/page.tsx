@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Button } from "@heroui/button";
 import { Input } from "@heroui/input";
 import { Card, CardHeader, CardBody } from "@heroui/card";
-import { LockIcon, UserIcon } from "lucide-react"; 
+import { LockIcon, MailIcon } from "lucide-react"; // Cambiado UserIcon por MailIcon
 import { login } from "@/app/auth-actions";
 import { title } from "@/components/primitives";
 
@@ -15,14 +15,13 @@ export default function LoginPage() {
   async function handleSubmit(formData: FormData) {
     setLoading(true);
     setError(null);
-    try {
-      const result = await login(formData);
-      if (result?.error) {
-        setError(result.error);
-      }
-    } catch (err) {
-      setError("Ocurrió un error inesperado. Inténtalo de nuevo.");
-    } finally {
+    
+    // Llamamos a la acción. Si hay un error, lo capturamos.
+    // Si no hay error, la acción misma hará el redirect.
+    const result = await login(formData);
+    
+    if (result?.error) {
+      setError(result.error);
       setLoading(false);
     }
   }
@@ -36,16 +35,18 @@ export default function LoginPage() {
         </CardHeader>
         
         <CardBody>
+          {/* Usamos action directamente con nuestra función asíncrona */}
           <form action={handleSubmit} className="flex flex-col gap-4">
             <Input
               isRequired
-              name="username"
-              label="Usuario"
-              placeholder="Escribe tu usuario"
+              name="email" // CAMBIADO: Antes era "username"
+              type="email"
+              label="Email"
+              placeholder="tu@email.com"
               variant="bordered"
               labelPlacement="outside"
               startContent={
-                <UserIcon className="text-2xl text-default-400 pointer-events-none flex-shrink-0" />
+                <MailIcon className="text-2xl text-default-400 pointer-events-none flex-shrink-0" />
               }
             />
             
@@ -75,7 +76,7 @@ export default function LoginPage() {
               isLoading={loading}
               size="lg"
             >
-              {loading ? "Iniciando sesión..." : "Ingresar"}
+              Ingresar
             </Button>
           </form>
         </CardBody>
