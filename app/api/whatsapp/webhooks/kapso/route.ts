@@ -1,7 +1,7 @@
+// app/api/whatsapp/webhooks/kapso/route.ts
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
-// Usamos el cliente administrativo para poder actualizar perfiles sin sesión de usuario
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -9,26 +9,37 @@ const supabaseAdmin = createClient(
 
 export async function POST(req: Request) {
   try {
+    // 1. Validar el secreto desde los headers
+    const incomingSecret = req.headers.get("x-webhook-secret");
+    const environmentSecret = process.env.KAPSO_WEBHOOK_SECRET;
+
+    if (!incomingSecret || incomingSecret !== environmentSecret) {
+      console.error("❌ Intento de acceso no autorizado al webhook");
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
     const body = await req.json();
-    const event = body.event; // Kapso envía el tipo de evento aquí
+    const { event, data } = body;
 
-    // El evento 'customer.connected' se dispara cuando escanean el QR con éxito
-    if (event === "customer.connected") {
-      // Nota: Ajusta la destructuración según el payload real de Kapso
-      const { external_customer_id, phone_number_id } = body.data;
+    // 2. Procesar el evento oficial de Kapso
+    if (event === "whatsapp.phone_number.created") {
+      const { external_customer_id, id: phoneNumberId } = data;
 
-      await supabaseAdmin
+      const { error } = await supabaseAdmin
         .from("perfiles")
         .update({ 
           whatsapp_status: "connected",
-          whatsapp_phone_number_id: phone_number_id // Guardamos esto para enviar mensajes
+          whatsapp_phone_number_id: phoneNumberId 
         })
         .eq("id", external_customer_id);
+
+      if (error) throw error;
+      console.log(`✅ Conexión exitosa guardada para: ${external_customer_id}`);
     }
 
     return NextResponse.json({ received: true }, { status: 200 });
   } catch (error: any) {
-    console.error("Error en Webhook:", error.message);
+    console.error("❌ Error en Webhook:", error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
