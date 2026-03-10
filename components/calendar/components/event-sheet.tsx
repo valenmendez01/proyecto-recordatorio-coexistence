@@ -13,6 +13,7 @@ import { Calendar, Clock, User, FileText, X, Check, Pencil, Save, Undo2 } from "
 import { useCalendarStore } from "../store/calendar-store";
 import { createClient } from "@/utils/supabase/client";
 import { CalendarEvent } from "@/types/types";
+import { Divider } from "@heroui/divider";
 
 interface EventSheetProps {
   event: CalendarEvent | null;
@@ -78,18 +79,11 @@ export function EventSheet({ event, open, onOpenChange }: EventSheetProps) {
       <DrawerContent>
         {(onClose) => (
           <>
-            <DrawerHeader className="border-b px-6 py-6 bg-default-50">
-              <div className="flex justify-between items-center mb-4">
-                <span className="text-xs font-bold uppercase px-2 py-1 rounded bg-primary-100 text-primary">
-                  {event.status}
-                </span>
-                <div className="flex gap-2">
-                  {!isEditing && <Button isIconOnly size="sm" variant="flat" onPress={handleEnterEdit}><Pencil className="size-4" /></Button>}
-                  <Button isIconOnly size="sm" variant="light" onPress={onClose}><X className="size-4" /></Button>
-                </div>
-              </div>
+            <DrawerHeader className="px-6 py-6">
               <h2 className="text-xl font-bold">{isEditing ? "Editar Turno" : "Detalle de Reserva"}</h2>
             </DrawerHeader>
+
+            <Divider orientation="horizontal" />
 
             <DrawerBody className="p-6 gap-6">
               {isEditing ? (
@@ -134,10 +128,15 @@ export function EventSheet({ event, open, onOpenChange }: EventSheetProps) {
                       </div>
                     </div>
                   )}
-                  
-                  <div className="mt-auto border-t pt-6 grid grid-cols-2 gap-2">
-                    <Button color="success" variant="flat" onPress={() => updateStatus("confirmado")}>Confirmar</Button>
-                    <Button color="danger" variant="flat" onPress={() => updateStatus("cancelado")}>Cancelar</Button>
+                  {!isEditing && <Button size="sm" color="primary" variant="flat" onPress={handleEnterEdit}><Pencil className="size-4" />Modificar Turno</Button>}
+
+                  <Divider orientation="horizontal" />
+                  <div className="flex flex-col gap-5">
+                    <p className="text-lg font-medium">Asignar estado a la reserva</p>
+                    <div className="mt-auto grid grid-cols-2 gap-2">
+                      <Button color="success" variant="flat" onPress={() => updateStatus("confirmado")}>Confirmar</Button>
+                      <Button color="danger" variant="flat" onPress={() => updateStatus("cancelado")}>Cancelar</Button>
+                    </div>
                   </div>
                 </div>
               )}
