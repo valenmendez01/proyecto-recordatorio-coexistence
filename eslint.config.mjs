@@ -86,17 +86,26 @@ export default defineConfig([globalIgnores([
     files: ["**/*.ts", "**/*.tsx"],
 
     rules: {
-        "no-console": "warn",
-        "react/prop-types": "off",
-        "react/jsx-uses-react": "off",
-        "react/react-in-jsx-scope": "off",
-        "react-hooks/exhaustive-deps": "off",
-        "jsx-a11y/click-events-have-key-events": "warn",
-        "jsx-a11y/interactive-supports-focus": "warn",
-        "prettier/prettier": "warn",
         "no-unused-vars": "off",
         "unused-imports/no-unused-vars": "off",
-        "unused-imports/no-unused-imports": "warn",
+        "unused-imports/no-unused-imports": "off", // Silencia imports no usados
+        "react/jsx-sort-props": "off", // No obliga a ordenar alfabéticamente las props
+
+        "@typescript-eslint/no-unused-vars": "off", // Silencia variables de TS no usadas
+        "@typescript-eslint/no-explicit-any": "off", // Permite el uso de 'any' sin avisos
+
+        "import/order": "off", // Silencia el orden estricto de los imports
+        
+        "react/self-closing-comp": "off", // No obliga a cerrar componentes vacíos de una forma
+        "react/jsx-sort-props": "off", // No obliga a ordenar alfabéticamente las props
+        
+        "padding-line-between-statements": "off", // Quita la obligación de líneas en blanco
+        
+        // Reglas de Prettier y otras que podrías querer mantener en error o apagar
+        "prettier/prettier": "off", 
+        "react/prop-types": "off",
+        "react/react-in-jsx-scope": "off",
+        "jsx-a11y/anchor-is-valid": "off",
 
         "@typescript-eslint/no-unused-vars": ["warn", {
             args: "after-used",

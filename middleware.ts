@@ -31,12 +31,17 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Proteger rutas de dashboard
-  if (!user && !request.nextUrl.pathname.startsWith('/login')) {
+  // Definimos las rutas que son públicas
+  const isPublicRoute = 
+    request.nextUrl.pathname.startsWith('/login') || 
+    request.nextUrl.pathname.startsWith('/presentacion')
+
+  // Proteger rutas: Si no hay usuario y NO es una ruta pública, al login
+  if (!user && !isPublicRoute) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // Redirigir si ya está logueado
+  // Redirigir si ya está logueado e intenta ir al login
   if (user && request.nextUrl.pathname.startsWith('/login')) {
     return NextResponse.redirect(new URL('/', request.url))
   }
