@@ -12,10 +12,11 @@ const supabase = createClient();
 
 export default function ConfigPage() {
   const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState<"loading" | "connected" | "disconnected">("loading");
+  const [status, setStatus] = useState<"connected" | "disconnected">("disconnected");
+  const [statusLoading, setStatusLoading] = useState(true);
 
   const checkStatus = async () => {
-    setStatus("loading");
+    setStatusLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
     
     if (user) {
@@ -27,12 +28,13 @@ export default function ConfigPage() {
       
       if (error) {
         console.error("Error consultando estado:", error);
-        setStatus("disconnected");
+        setStatusLoading(false);
         return;
       }
         
       setStatus(data?.whatsapp_status === 'connected' ? 'connected' : 'disconnected');
     }
+    setStatusLoading(false);
   };
 
   useEffect(() => {
@@ -53,6 +55,18 @@ export default function ConfigPage() {
     }
   };
 
+  const handleDisconnect = async () => {
+    setLoading(true);
+    try {
+      await disconnectWhatsapp();
+      setStatus("disconnected");
+    } catch (err) {
+      alert("Error al desconectar WhatsApp");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <Card className="flex flex-col gap-6">
       <CardHeader className="flex justify-between items-center px-6 pt-6">
@@ -66,8 +80,7 @@ export default function ConfigPage() {
           </div>
         </div>
         
-        {/* Implementación del Chip de Estado */}
-        {status === "loading" ? (
+        {statusLoading ? (
           <Chip variant="flat" size="sm">Cargando...</Chip>
         ) : status === "connected" ? (
           <Chip
@@ -100,17 +113,7 @@ export default function ConfigPage() {
               color="danger"
               variant="flat"
               isLoading={loading}
-              onPress={async () => {
-                setLoading(true);
-                try {
-                  await disconnectWhatsapp();
-                  setStatus("disconnected");
-                } catch (err) {
-                  alert("Error al desconectar WhatsApp");
-                } finally {
-                  setLoading(false);
-                }
-              }}
+              onPress={handleDisconnect}
             >
               Desconectar
             </Button>
@@ -131,7 +134,7 @@ export default function ConfigPage() {
             onPress={checkStatus}
             aria-label="Actualizar estado"
           >
-            <RefreshCw size={18} className={status === "loading" ? "animate-spin" : ""} />
+            <RefreshCw size={18} className={statusLoading ? "animate-spin" : ""} />
           </Button>
         </div>
       </CardBody>
