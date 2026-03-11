@@ -12,9 +12,14 @@ export async function GET(req: NextRequest) {
   const status = searchParams.get("status");
   const phone_number_id = searchParams.get("phone_number_id");
 
+  console.log("📨 Success redirect recibido:", { status, phone_number_id });
+
   if (status === "completed" && phone_number_id) {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    console.log("👤 Usuario en sesión:", user?.id ?? "NULL");
+    console.log("🔐 Auth error:", authError?.message ?? "ninguno");
 
     if (user) {
       const { error } = await supabaseAdmin
