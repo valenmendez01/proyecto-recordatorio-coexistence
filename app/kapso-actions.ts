@@ -92,4 +92,15 @@ export async function disconnectWhatsapp() {
   console.log("🗑️ Phone number ID usado:", perfil.whatsapp_phone_number_id);
 
   if (!res.ok) throw new Error("Error al desconectar");
+
+  // Actualizar la DB
+  const { error } = await supabase
+    .from('perfiles')
+    .update({ 
+      whatsapp_status: "disconnected",
+      whatsapp_phone_number_id: null
+    })
+    .eq('id', user.id);
+
+  if (error) throw error;
 }
