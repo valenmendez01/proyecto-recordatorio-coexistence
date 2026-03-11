@@ -86,5 +86,10 @@ export async function disconnectWhatsapp() {
     headers: { 'X-API-Key': KAPSO_API_KEY! }
   });
 
+  const resBody = await res.text();
+  console.log("🗑️ Delete status:", res.status);
+  console.log("🗑️ Delete response:", resBody);
+  console.log("🗑️ Phone number ID usado:", perfil.whatsapp_phone_number_id);
+
   if (!res.ok) throw new Error("Error al desconectar");
 }
