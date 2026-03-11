@@ -20,9 +20,16 @@ CREATE TABLE public.pacientes (
 -- Índices para búsquedas rápidas
 CREATE INDEX IF NOT EXISTS idx_pacientes_dni ON public.pacientes(dni);
 
--- Habilitamos RLS, pero NO creamos ninguna POLICY.
--- Esto bloquea todo el acceso desde el frontend (PostgREST).
+-- Habilitamos RLS
 ALTER TABLE public.perfiles ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Usuario lee su propio perfil"
+  ON public.perfiles FOR SELECT
+  USING (auth.uid() = id);
+
+CREATE POLICY "Usuario actualiza su propio perfil"
+  ON public.perfiles FOR UPDATE
+  USING (auth.uid() = id);
 
 -- Función para verificar si eres admin
 CREATE OR REPLACE FUNCTION public.es_admin()

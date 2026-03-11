@@ -67,3 +67,24 @@ export async function generateSetupLink() {
 
   return setupData.data; // Contiene la .url para el QR
 }
+
+export async function disconnectWhatsapp() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("No autorizado");
+
+  const { data: perfil } = await supabase
+    .from('perfiles')
+    .select('whatsapp_phone_number_id')
+    .eq('id', user.id)
+    .single();
+
+  if (!perfil?.whatsapp_phone_number_id) throw new Error("No hay conexión activa");
+
+  const res = await fetch(`${PLATFORM_API_URL}/phone-numbers/${perfil.whatsapp_phone_number_id}`, {
+    method: 'DELETE',
+    headers: { 'X-API-Key': KAPSO_API_KEY! }
+  });
+
+  if (!res.ok) throw new Error("Error al desconectar");
+}

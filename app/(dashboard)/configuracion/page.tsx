@@ -5,7 +5,7 @@ import { Button } from "@heroui/button";
 import { Card, CardHeader, CardBody } from "@heroui/card";
 import { Chip } from "@heroui/chip";
 import { MessageSquare, ExternalLink, CheckCircle2, XCircle, RefreshCw } from "lucide-react";
-import { generateSetupLink } from "@/app/kapso-actions";
+import { generateSetupLink, disconnectWhatsapp } from "@/app/kapso-actions";
 import { createClient } from "@/utils/supabase/client";
 
 const supabase = createClient();
@@ -45,24 +45,6 @@ export default function ConfigPage() {
       const data = await generateSetupLink();
       if (data.url) {
         window.open(data.url, "_blank");
-        // Polling cada 3 segundos por 2 minutos
-        const interval = setInterval(async () => {
-          const { data: { user } } = await supabase.auth.getUser();
-          if (!user) return clearInterval(interval);
-
-          const { data: perfil } = await supabase
-            .from('perfiles')
-            .select('whatsapp_status')
-            .eq('id', user.id)
-            .maybeSingle();
-
-          if (perfil?.whatsapp_status === 'connected') {
-            setStatus('connected');
-            clearInterval(interval);
-          }
-        }, 3000);
-
-        setTimeout(() => clearInterval(interval), 120000);
       }
     } catch (err) {
       alert("Error al conectar con el servicio de mensajería");
@@ -113,16 +95,37 @@ export default function ConfigPage() {
         </p>
 
         <div className="flex gap-3 mt-2">
-          <Button 
-            color="primary" 
-            isLoading={loading}
-            onPress={handleConnect}
-            endContent={!loading && <ExternalLink size={18} />}
-          >
-            {status === "connected" ? "Reconfigurar Conexión" : "Configurar Conexión"}
-          </Button>
-          
-          <Button 
+          {status === "connected" ? (
+            <Button
+              color="danger"
+              variant="flat"
+              isLoading={loading}
+              onPress={async () => {
+                setLoading(true);
+                try {
+                  await disconnectWhatsapp();
+                  setStatus("disconnected");
+                } catch (err) {
+                  alert("Error al desconectar WhatsApp");
+                } finally {
+                  setLoading(false);
+                }
+              }}
+            >
+              Desconectar
+            </Button>
+          ) : (
+            <Button
+              color="primary"
+              isLoading={loading}
+              onPress={handleConnect}
+              endContent={!loading && <ExternalLink size={18} />}
+            >
+              Configurar Conexión
+            </Button>
+          )}
+
+          <Button
             isIconOnly
             variant="flat"
             onPress={checkStatus}
@@ -131,15 +134,6 @@ export default function ConfigPage() {
             <RefreshCw size={18} className={status === "loading" ? "animate-spin" : ""} />
           </Button>
         </div>
-
-        {status === "disconnected" && (
-          <div className="mt-2 p-3 bg-warning-50 border border-warning-200 rounded-medium">
-            <p className="text-tiny text-warning-700 font-medium">
-              Nota: Necesitas escanear el QR desde tu aplicación de WhatsApp Business 
-              para activar el envío de mensajes.
-            </p>
-          </div>
-        )}
       </CardBody>
     </Card>
   );

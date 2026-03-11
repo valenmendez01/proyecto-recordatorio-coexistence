@@ -19,7 +19,10 @@ export async function GET(req: NextRequest) {
     if (user) {
       const { error } = await supabaseAdmin
         .from("perfiles")
-        .update({ whatsapp_status: "connected" })
+        .update({ 
+          whatsapp_status: "connected",
+          whatsapp_phone_number_id: phone_number_id
+        })
         .eq("id", user.id);
 
       if (error) console.error("❌ Error actualizando estado:", error);
