@@ -22,12 +22,14 @@ export async function GET(req: NextRequest) {
     console.log("🔐 Auth error:", authError?.message ?? "ninguno");
 
     if (user) {
-      const { error } = await supabaseAdmin
+      const { data: updated, error } = await supabaseAdmin
         .from("perfiles")
         .update({ whatsapp_status: "connected" })
-        .eq("id", user.id);
+        .eq("id", user.id)
+        .select();
 
-      if (error) console.error("❌ Error actualizando estado:", error);
+      console.log("📝 Filas actualizadas:", JSON.stringify(updated));
+      if (error) console.error("❌ Error:", error);
       else console.log("✅ WhatsApp conectado para usuario:", user.id);
     }
   }
