@@ -81,7 +81,7 @@ export async function disconnectWhatsapp() {
 
   if (!perfil?.whatsapp_phone_number_id) throw new Error("No hay conexión activa");
 
-  const res = await fetch(`${PLATFORM_API_URL}/phone-numbers/${perfil.whatsapp_phone_number_id}`, {
+  const res = await fetch(`${PLATFORM_API_URL}/whatsapp/phone_numbers/${perfil.whatsapp_phone_number_id}`, {
     method: 'DELETE',
     headers: { 'X-API-Key': KAPSO_API_KEY! }
   });
