@@ -44,7 +44,7 @@ export default function ConfigPage() {
     try {
       const data = await generateSetupLink();
       if (data.url) {
-        window.open(data.url, "_blank");
+        window.location.href = data.url;
       }
     } catch (err) {
       alert("Error al conectar con el servicio de mensajería");
