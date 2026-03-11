@@ -54,16 +54,16 @@ export async function generateSetupLink() {
       'X-API-Key': KAPSO_API_KEY!,
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ 
-      setup_link: {
-        success_redirect_url: `${process.env.NEXT_PUBLIC_APP_URL}/whatsapp/success`,
-        failure_redirect_url: `${process.env.NEXT_PUBLIC_APP_URL}/whatsapp/failed`
-      } 
-    })
+    body: JSON.stringify({ setup_link: {} })
   });
 
   const setupData = await setupRes.json();
+
+  // 👇 Agrega esto
+  console.log("📦 Setup link response status:", setupRes.status);
+  console.log("📦 Setup link response body:", JSON.stringify(setupData, null, 2));
+
   if (!setupRes.ok) throw new Error(setupData.message || "Error al generar link");
 
-  return setupData.data; // Contiene la .url para el QR
+  return setupData.data;
 }

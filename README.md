@@ -51,3 +51,15 @@ After modifying the `.npmrc` file, you need to run `pnpm install` again to ensur
 ## License
 
 Licensed under the [MIT license](https://github.com/heroui-inc/next-app-template/blob/main/LICENSE).
+
+
+
+
+Desconectar Kapso:
+Ir a whatsapp Business desde el celular / Settings / Account / Business Platform / desconectar
+Ir a https://business.facebook.com/  despues a integraciones / aplicaciones conectadas y suprimir kapso
+
+Eliminar numero de whatsapp:
+Ir a https://business.facebook.com/  despues a cuentas / cuentas de whatsapp
+
+En web de kapso ir a Tenants / Costumers / Eliminar el numero (no se va a poder eliminar hasta que config = 0)
