@@ -224,3 +224,52 @@ export async function exchangeCodeForToken(code: string): Promise<
 
   return { accessToken, wabaId, phoneNumberId };
 }
+
+// app/meta-actions.ts
+
+/**
+ * Envía un mensaje de prueba utilizando la plantilla 'hello_world'
+ * para la validación de Meta.
+ */
+export async function sendTestMessage(recipientPhone: string) {
+  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const version = process.env.WHATSAPP_API_VERSION || "v21.0";
+
+  if (!accessToken || !phoneNumberId) {
+    return { error: "Configuración de WhatsApp incompleta en el servidor." };
+  }
+
+  try {
+    const response = await fetch(
+      `https://graph.facebook.com/${version}/${phoneNumberId}/messages`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          messaging_product: "whatsapp",
+          to: recipientPhone,
+          type: "template",
+          template: {
+            name: "hello_world",
+            language: { code: "en_US" },
+          },
+        }),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error?.message || "Error al enviar el mensaje");
+    }
+
+    return { success: true, messageId: data.messages[0].id };
+  } catch (error: any) {
+    console.error("[sendTestMessage] Error:", error);
+    return { error: error.message };
+  }
+}

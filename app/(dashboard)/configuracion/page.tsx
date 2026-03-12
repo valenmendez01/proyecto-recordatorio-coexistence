@@ -11,8 +11,9 @@ import {
   XCircle,
   RefreshCw,
 } from "lucide-react";
-import { generateEmbeddedSignupUrl } from "@/app/meta-actions"; // ✅ nombre corregido
+import { generateEmbeddedSignupUrl, sendTestMessage } from "@/app/meta-actions"; // ✅ nombre corregido
 import { createClient } from "@/utils/supabase/client";
+import { Input } from "@heroui/input";
 
 const supabase = createClient();
 
@@ -23,6 +24,29 @@ export default function ConfigPage() {
     status: "connected" | "disconnected";
     loading: boolean;
   }>({ status: "disconnected", loading: true });
+
+
+  // ---------------------------------------------------------------------------
+  // TEST META
+  // ---------------------------------------------------------------------------
+  const [testLoading, setTestLoading] = useState(false);
+  const [testPhone, setTestPhone] = useState("");
+
+  const handleSendTest = async () => {
+    if (!testPhone) {
+      setErrorMsg("Ingresa un número para la prueba.");
+      return;
+    }
+    setTestLoading(true);
+    const result = await sendTestMessage(testPhone);
+    setTestLoading(false);
+
+    if (result.error) {
+      setErrorMsg(result.error);
+    } else {
+      alert("¡Mensaje de prueba enviado con éxito!");
+    }
+  };
 
   // ---------------------------------------------------------------------------
   // Consulta el estado actual en la tabla `perfiles`
@@ -229,6 +253,41 @@ export default function ConfigPage() {
           </div>
         </CardBody>
       </Card>
+
+      {/* SECCIÓN NUEVA PARA EL VIDEO DE META */}
+      {whatsappState.status === "connected" && (
+        <Card className="border-primary/20 border-2">
+          <CardHeader className="px-6 pt-6">
+            <h3 className="text-md font-bold flex items-center gap-2">
+              <RefreshCw size={18} className="text-primary" />
+              Validación de Conexión (Prueba)
+            </h3>
+          </CardHeader>
+          <CardBody className="px-6 pb-6 flex flex-col gap-4">
+            <p className="text-sm text-default-500">
+              Usa esta sección para grabar el video requerido por Meta. Envía un mensaje de prueba a tu propio número.
+            </p>
+            <div className="flex gap-3 items-end">
+              <Input
+                label="Tu número de WhatsApp"
+                placeholder="542994562051"
+                value={testPhone}
+                onValueChange={setTestPhone}
+                description="Incluye código de país (ej. 54 para Argentina)"
+                className="max-w-xs"
+              />
+              <Button
+                color="success"
+                variant="flat"
+                isLoading={testLoading}
+                onPress={handleSendTest}
+              >
+                Enviar Mensaje de Prueba
+              </Button>
+            </div>
+          </CardBody>
+        </Card>
+      )}
     </div>
   );
 }
