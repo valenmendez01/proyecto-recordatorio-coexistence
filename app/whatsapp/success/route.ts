@@ -9,24 +9,26 @@ const supabaseAdmin = createAdminClient(
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const status = searchParams.get("status");
-  const phone_number_id = searchParams.get("phone_number_id");
+  const code = searchParams.get("code"); // Meta envía un 'code'
 
-  if (status === "completed" && phone_number_id) {
+  if (code) {
+    // 1. Intercambiar el código por un Access Token usando el Graph API de Meta
+    const res = await fetch(`https://graph.facebook.com/v20.0/oauth/access_token?client_id=${process.env.NEXT_PUBLIC_META_APP_ID}&client_secret=${process.env.META_APP_SECRET}&code=${code}`);
+    const data = await res.json();
+    
+    // 2. Guardar el token y el ID del número en Supabase
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
-    if (user) {
-      const { error } = await supabaseAdmin
+    if (user && data.access_token) {
+      await supabaseAdmin
         .from("perfiles")
         .update({ 
           whatsapp_status: "connected",
-          whatsapp_phone_number_id: phone_number_id
+          // Aquí guardarías el token de Meta (cifrado preferiblemente)
+          whatsapp_phone_number_id: "ID_DEL_NUMERO_EXTRAIDO_DE_META" 
         })
         .eq("id", user.id);
-
-      if (error) console.error("❌ Error actualizando estado:", error);
-      else console.log("✅ WhatsApp conectado para usuario:", user.id);
     }
   }
 

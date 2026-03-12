@@ -1,21 +1,31 @@
 // app/api/whatsapp/send-reminders/route.ts
 import { NextResponse } from 'next/server';
 
-const WHATSAPP_API_URL = 'https://api.kapso.ai/meta/whatsapp/v24.0';
+const META_API_URL = `https://graph.facebook.com/${process.env.WHATSAPP_API_VERSION}`;
 
-// Cambiamos la función a una interna o la dejamos como ayuda
-async function sendReminder(phoneNumberId: string, to: string, message: string) {
-  return fetch(`${WHATSAPP_API_URL}/${phoneNumberId}/messages`, {
+async function sendMetaReminder(to: string, templateName: string, idTurno: string) {
+  return fetch(`${META_API_URL}/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`, {
     method: 'POST',
     headers: {
-      'X-API-Key': process.env.KAPSO_API_KEY!,
+      'Authorization': `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
       messaging_product: "whatsapp",
       to: to,
-      type: "text",
-      text: { body: message }
+      type: "template",
+      template: {
+        name: templateName,
+        language: { code: "es_AR" },
+        components: [
+          {
+            type: "button",
+            sub_type: "url",
+            index: "0",
+            parameters: [{ type: "text", text: idTurno }]
+          }
+        ]
+      }
     })
   });
 }

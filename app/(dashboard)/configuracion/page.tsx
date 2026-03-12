@@ -5,7 +5,8 @@ import { Button } from "@heroui/button";
 import { Card, CardHeader, CardBody } from "@heroui/card";
 import { Chip } from "@heroui/chip";
 import { MessageSquare, ExternalLink, CheckCircle2, XCircle, RefreshCw } from "lucide-react";
-import { generateSetupLink, disconnectWhatsapp } from "@/app/kapso-actions";
+// import { generateSetupLink, disconnectWhatsapp } from "@/app/kapso-actions";
+import { getMetaSignupUrl } from "@/app/meta-actions";
 import { createClient } from "@/utils/supabase/client";
 
 const supabase = createClient();
@@ -48,12 +49,12 @@ export default function ConfigPage() {
   const handleConnect = async () => {
     setLoading(true);
     try {
-      const data = await generateSetupLink();
+      const data = await getMetaSignupUrl(); // Cambiado de generateSetupLink
       if (data.url) {
         window.location.href = data.url;
       }
     } catch (err) {
-      alert("Error al conectar con el servicio de mensajería");
+      alert("Error al iniciar el registro con Meta");
     } finally {
       setLoading(false);
     }
@@ -62,7 +63,7 @@ export default function ConfigPage() {
   const handleDisconnect = async () => {
     setLoading(true);
     try {
-      await disconnectWhatsapp();
+      // await disconnectWhatsapp();
       setWhatsappState({ status: "disconnected", loading: false });
     } catch (err) {
       alert("Error al desconectar WhatsApp");
