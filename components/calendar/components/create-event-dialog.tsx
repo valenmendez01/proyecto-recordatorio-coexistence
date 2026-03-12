@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { format } from "date-fns";
-import { es } from "date-fns/locale";
+import { I18nProvider } from "@react-aria/i18n";
 import { Button } from "@heroui/button";
 import { Input } from "@heroui/input";
 import { DatePicker } from "@heroui/date-picker";
+import { TimeInput } from "@heroui/date-input";
+import { Autocomplete, AutocompleteItem } from "@heroui/autocomplete";
 import {
   Modal,
   ModalContent,
@@ -13,17 +15,11 @@ import {
   ModalBody,
   ModalFooter,
 } from "@heroui/modal";
-import { parseDate, getLocalTimeZone, today } from "@internationalized/date";
-import {
-  Clock,
-  User,
-  Search,
-  CheckCircle2,
-  AlertCircle,
-} from "lucide-react";
+import { parseDate, getLocalTimeZone, today, Time } from "@internationalized/date";
+import { Search, AlertCircle } from "lucide-react";
 
 import { useCalendarStore } from "../store/calendar-store";
-import { createClient } from "@/utils/supabase/client"; // Usamos el cliente de navegador
+import { createClient } from "@/utils/supabase/client";
 import { Paciente } from "@/types/types";
 
 interface CreateEventDialogProps {
@@ -37,35 +33,68 @@ export function CreateEventDialog({ open, onOpenChange }: CreateEventDialogProps
 
   // --- ESTADOS DEL FORMULARIO ---
   const [date, setDate] = useState<Date | undefined>(new Date());
-  const [hora, setHora] = useState("09:00"); // Valor por defecto
-  const [dniCliente, setDniCliente] = useState("");
+  const [horaInicio, setHoraInicio] = useState<Time | null>(new Time(9, 0));
+  const [horaFin, setHoraFin] = useState<Time | null>(new Time(10, 0));
+  const [pacientesSugeridos, setPacientesSugeridos] = useState<Paciente[]>([]);
   const [clienteEncontrado, setClienteEncontrado] = useState<Paciente | null>(null);
   const [notas, setNotas] = useState("");
+
+  // --- ESTADO CONTROLADO DEL AUTOCOMPLETE ---
+  const [inputValue, setInputValue] = useState("");
+  // Ref para saber si onInputChange fue disparado por HeroUI tras una selección
+  // (no por el usuario escribiendo). Evita limpiar clienteEncontrado en ese caso.
+  const justSelectedRef = useRef(false);
 
   // --- ESTADOS DE UI ---
   const [isLoading, setIsLoading] = useState(false);
   const [isSearchingClient, setIsSearchingClient] = useState(false);
   const [mensajeError, setMensajeError] = useState("");
 
-  // Búsqueda de Paciente por DNI (ahora en la tabla 'pacientes')
-  const buscarCliente = async () => {
-    if (!dniCliente) return;
+  const buscarPacientes = async (texto: string) => {
+    if (texto.length < 2) {
+      setPacientesSugeridos([]);
+      return;
+    }
+
     setIsSearchingClient(true);
-    setClienteEncontrado(null);
     setMensajeError("");
 
     const { data, error } = await supabase
       .from("pacientes")
       .select("*")
-      .eq("dni", dniCliente)
-      .single();
+      .or(`dni.ilike.%${texto}%,nombre.ilike.%${texto}%,apellido.ilike.%${texto}%`)
+      .limit(10);
 
     setIsSearchingClient(false);
 
-    if (error || !data) {
-      setMensajeError("Paciente no encontrado. Regístralo en la sección de Pacientes.");
-    } else {
-      setClienteEncontrado(data);
+    if (error) {
+      setMensajeError("Error al buscar pacientes.");
+    } else if (data) {
+      setPacientesSugeridos(data);
+    }
+  };
+
+  // HeroUI dispara onInputChange justo después de onSelectionChange al elegir un item.
+  // Usamos justSelectedRef para ignorar ese disparo automático y no limpiar la selección.
+  const handleInputChange = (value: string) => {
+    if (justSelectedRef.current) {
+      justSelectedRef.current = false;
+      return;
+    }
+    setInputValue(value);
+    setClienteEncontrado(null);
+    buscarPacientes(value);
+  };
+
+  const handleSelectionChange = (key: React.Key | null) => {
+    if (!key) return;
+    const seleccionado = pacientesSugeridos.find(
+      (p) => p.id.toString() === key.toString()
+    );
+    if (seleccionado) {
+      justSelectedRef.current = true;
+      setClienteEncontrado(seleccionado);
+      setInputValue(`${seleccionado.nombre} ${seleccionado.apellido} - DNI: ${seleccionado.dni}`);
     }
   };
 
@@ -74,21 +103,27 @@ export function CreateEventDialog({ open, onOpenChange }: CreateEventDialogProps
     setMensajeError("");
     setIsLoading(true);
 
-    if (!date || !hora || !clienteEncontrado) {
+    if (!date || !horaInicio || !horaFin || !clienteEncontrado) {
       setMensajeError("Faltan datos obligatorios.");
+      setIsLoading(false);
+      return;
+    }
+
+    if (horaFin.compare(horaInicio) <= 0) {
+      setMensajeError("La hora de fin debe ser posterior a la de inicio.");
       setIsLoading(false);
       return;
     }
 
     const fechaStr = format(date, "yyyy-MM-dd");
 
-    // Inserción en tabla 'reservas' según esquema nuevo
     const { error } = await supabase.from("reservas").insert({
       paciente_id: clienteEncontrado.id,
       reserva_fecha: fechaStr,
-      reserva_hora: hora,
+      hora_inicio: horaInicio.toString().slice(0, 5),
+      hora_fin: horaFin.toString().slice(0, 5),
       estado: "reservado",
-      notas: notas || "Reserva manual"
+      notas: notas || "Sin notas",
     });
 
     if (error) {
@@ -111,46 +146,69 @@ export function CreateEventDialog({ open, onOpenChange }: CreateEventDialogProps
             <ModalHeader>Nueva Reserva</ModalHeader>
             <ModalBody>
               <form id="create-event-form" onSubmit={handleSubmit} className="grid gap-4">
-                
-                {/* 1. Buscador de Paciente */}
-                <div className="space-y-2">
-                  <div className="flex gap-2 items-end">
-                    <Input
-                      label="DNI del Paciente"
-                      placeholder="Ingrese DNI"
-                      value={dniCliente}
-                      onValueChange={setDniCliente}
-                      startContent={<User className="size-4 text-default-400" />}
-                    />
-                    <Button isIconOnly color="primary" variant="flat" onPress={buscarCliente} isLoading={isSearchingClient}>
-                      <Search className="size-4" />
-                    </Button>
-                  </div>
-                  {clienteEncontrado && (
-                    <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 p-2 rounded-md border border-green-200">
-                      <CheckCircle2 className="size-4" />
-                      <span>{clienteEncontrado.nombre} {clienteEncontrado.apellido}</span>
-                    </div>
+
+                {/* 1. Buscador de Paciente — modo completamente controlado */}
+                <Autocomplete
+                  label="Buscar Paciente"
+                  placeholder="Escribe nombre, apellido o DNI..."
+                  isLoading={isSearchingClient}
+                  items={pacientesSugeridos}
+                  // allowsCustomValue evita que el componente limpie el campo al hacer blur.
+                  // Sin esto, HeroUI revierte el input porque no tiene selectedKey que coincida.
+                  allowsCustomValue
+                  inputValue={inputValue}
+                  onInputChange={handleInputChange}
+                  onSelectionChange={handleSelectionChange}
+                  startContent={<Search className="size-4 text-default-400" />}
+                  listboxProps={{
+                    emptyContent: isSearchingClient ? "Buscando..." : "No se encontraron pacientes.",
+                  }}
+                >
+                  {(paciente) => (
+                    <AutocompleteItem
+                      key={paciente.id.toString()}
+                      textValue={`${paciente.nombre} ${paciente.apellido} - ${paciente.dni}`}
+                    >
+                      <div className="flex flex-col">
+                        <span className="text-small font-medium">
+                          {paciente.nombre} {paciente.apellido}
+                        </span>
+                        <span className="text-tiny text-default-400">
+                          DNI: {paciente.dni}
+                        </span>
+                      </div>
+                    </AutocompleteItem>
                   )}
-                </div>
+                </Autocomplete>
 
                 {/* 2. Fecha y Hora */}
-                <div className="flex gap-4">
-                  <DatePicker
-                    label="Fecha"
-                    className="flex-1"
-                    minValue={today(getLocalTimeZone())}
-                    value={date ? parseDate(format(date, "yyyy-MM-dd")) : undefined}
-                    onChange={(val) => setDate(val?.toDate(getLocalTimeZone()))}
-                  />
-                  <Input
-                    label="Hora"
-                    type="time"
-                    className="w-32"
-                    value={hora}
-                    onValueChange={setHora}
-                    startContent={<Clock className="size-4 text-default-400" />}
-                  />
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <I18nProvider locale="es-AR">
+                    <DatePicker
+                      label="Fecha"
+                      className="flex-1"
+                      minValue={today(getLocalTimeZone())}
+                      value={date ? parseDate(format(date, "yyyy-MM-dd")) : undefined}
+                      onChange={(val) => setDate(val?.toDate(getLocalTimeZone()))}
+                    />
+                  </I18nProvider>
+                  <div className="flex gap-2">
+                    <TimeInput
+                      label="Hora Inicio"
+                      value={horaInicio}
+                      onChange={setHoraInicio}
+                      className="w-full sm:w-28"
+                      hourCycle={24}
+                    />
+                    <TimeInput
+                      label="Hora Fin"
+                      value={horaFin}
+                      onChange={setHoraFin}
+                      className="w-full sm:w-28"
+                      isInvalid={!!(horaInicio && horaFin && horaFin.compare(horaInicio) <= 0)}
+                      hourCycle={24}
+                    />
+                  </div>
                 </div>
 
                 <Input label="Notas" value={notas} onValueChange={setNotas} />
@@ -165,7 +223,13 @@ export function CreateEventDialog({ open, onOpenChange }: CreateEventDialogProps
             </ModalBody>
             <ModalFooter>
               <Button variant="bordered" onPress={onClose}>Cancelar</Button>
-              <Button color="primary" type="submit" form="create-event-form" isDisabled={!clienteEncontrado} isLoading={isLoading}>
+              <Button
+                color="primary"
+                type="submit"
+                form="create-event-form"
+                isDisabled={!clienteEncontrado}
+                isLoading={isLoading}
+              >
                 Agendar Cita
               </Button>
             </ModalFooter>

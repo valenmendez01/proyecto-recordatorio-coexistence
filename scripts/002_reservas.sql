@@ -3,14 +3,15 @@ CREATE TABLE public.reservas (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   paciente_id UUID NOT NULL REFERENCES public.pacientes(id) ON DELETE CASCADE,
   reserva_fecha DATE NOT NULL,
-  reserva_hora TIME NOT NULL,
+  hora_inicio TIME NOT NULL,
+  hora_fin TIME NOT NULL,
   estado TEXT NOT NULL DEFAULT 'reservado' CHECK (estado IN ('reservado', 'confirmado', 'cancelado')),
   notas TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Índice para la agenda
-CREATE INDEX IF NOT EXISTS idx_reservas_agenda ON public.reservas(reserva_fecha, reserva_hora);
+CREATE INDEX IF NOT EXISTS idx_reservas_agenda ON public.reservas(reserva_fecha, hora_inicio);
 
 -- Habilitar RLS
 ALTER TABLE public.reservas ENABLE ROW LEVEL SECURITY;

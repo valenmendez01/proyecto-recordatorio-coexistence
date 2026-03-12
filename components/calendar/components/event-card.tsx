@@ -1,7 +1,5 @@
 "use client";
 
-import { Avatar } from "@heroui/avatar";
-
 import { CalendarEvent } from "@/types/types"; // Usar el nuevo tipo
 import clsx from "clsx";
 
@@ -80,19 +78,6 @@ export function EventCard({
             )}
           >
             {event.description}
-          </div>
-        )}
-
-        {event.participants && event.participants.length > 0 && (
-          <div className="mt-auto pt-1 flex -space-x-1 overflow-hidden shrink-0">
-            {event.participants.slice(0, 3).map((name, i) => (
-              <Avatar
-                key={i}
-                className="size-4 border-2 border-background text-[8px]"
-                getInitials={(n) => (n ? n.charAt(0).toUpperCase() : "?")}
-                name={name}
-              />
-            ))}
           </div>
         )}
       </div>

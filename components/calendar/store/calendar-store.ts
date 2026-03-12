@@ -96,7 +96,8 @@ export const useCalendarStore = create<CalendarState>()(
               `
               id,
               reserva_fecha,
-              reserva_hora,
+              hora_inicio, 
+              hora_fin,
               estado,
               notas,
               paciente:pacientes(nombre, apellido)
@@ -113,15 +114,11 @@ export const useCalendarStore = create<CalendarState>()(
               ? `${r.paciente.nombre} ${r.paciente.apellido}` 
               : "Paciente Desconocido";
 
-            // Cálculo de hora de fin (asumiendo 1 hora de duración para la UI)
-            const [hour, minute] = r.reserva_hora.split(":").map(Number);
-            const endTime = `${(hour + 1).toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`;
-
             return {
               id: r.id,
               title: nombreCompleto, // El título ahora es el nombre del paciente
-              startTime: r.reserva_hora.slice(0, 5),
-              endTime: endTime,
+              startTime: r.hora_inicio.slice(0, 5),
+              endTime: r.hora_fin.slice(0, 5),
               date: r.reserva_fecha,
               participants: [nombreCompleto],
               status: r.estado as CalendarEvent["status"],

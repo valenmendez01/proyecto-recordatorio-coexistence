@@ -54,7 +54,7 @@ export function CalendarControls() {
   const hoursOptions = Array.from({ length: 24 }, (_, i) => i);
 
   return (
-    <div className="px-3 md:px-6 py-4 border-b border-gray-200">
+    <div className="px-3 md:px-6 py-4 border-b border-divider">
       <div className="flex items-center gap-2 md:gap-3 flex-wrap">
         <Button
           className="h-8 px-3 shrink-0 font-semibold"

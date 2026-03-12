@@ -65,14 +65,14 @@ export function CalendarDayColumn({
   return (
     <div
       ref={scrollRef}
-      className="flex-1 border-r border-gray-200 last:border-r-0 relative min-w-44 overflow-y-auto"
+      className="flex-1 border-r border-divider last:border-r-0 relative min-w-44 overflow-y-auto"
       onScroll={onScroll(dayIndex)}
     >
       {/* Renderizar solo las horas visibles */}
       {visibleHours.map((hour) => (
         <div
           key={hour}
-          className="border-b border-gray-200"
+          className="border-b border-divider"
           style={{ height: `${HOUR_HEIGHT}px` }}
         />
       ))}

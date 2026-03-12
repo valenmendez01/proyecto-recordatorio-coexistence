@@ -35,7 +35,7 @@ export function CalendarHeader() {
         open={createDialogOpen}
         onOpenChange={setCreateDialogOpen}
       />
-      <div className="border-b border-gray-200 bg-background">
+      <div className="border-b border-divider bg-transparent">
         <div className="px-3 md:px-6 py-2.5 md:py-3">
           <div className="flex items-center justify-between gap-2 md:gap-3 flex-nowrap">
             <div className="flex items-center gap-2 flex-1 min-w-0">
