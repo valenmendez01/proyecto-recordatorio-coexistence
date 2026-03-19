@@ -17,7 +17,7 @@ import {
 import { preVerifyPhoneNumber, sendTestMessage } from "@/app/meta-actions"; 
 import { createClient } from "@/utils/supabase/client";
 import { Input } from "@heroui/input";
-import { Divider } from "@heroui/divider";
+import { completeOnboarding } from "@/app/meta-actions";
 
 const supabase = createClient();
 
@@ -31,6 +31,25 @@ export default function ConfigPage() {
 
   const [testLoading, setTestLoading] = useState(false);
   const [testPhone, setTestPhone] = useState("");
+
+  // Almacenamos temporalmente los IDs que llegan por el 'message event'
+  const [signupData, setSignupData] = useState<{ wabaId?: string; phoneId?: string }>({});
+
+  useEffect(() => {
+    // Escuchamos el evento que configuramos en el FacebookSDK
+    const handleWaEvent = (e: any) => {
+      const { data, type } = e.detail;
+      if (type === 'WA_EMBEDDED_SIGNUP' && data.waba_id) {
+        setSignupData({
+          wabaId: data.waba_id,
+          phoneId: data.phone_number_id
+        });
+      }
+    };
+
+    window.addEventListener('wa_signup_event', handleWaEvent);
+    return () => window.removeEventListener('wa_signup_event', handleWaEvent);
+  }, []);
 
   // ---------------------------------------------------------------------------
   // PASO 1: Pre-verificar Número (Server Action)
@@ -52,31 +71,55 @@ export default function ConfigPage() {
   // ---------------------------------------------------------------------------
   const handleConnect = () => {
     // @ts-ignore
-    if (!window.FB) {
-      alert("El SDK de Facebook aún no se ha cargado. Reintenta en un momento.");
-      return;
-    }
+    if (!window.FB) return alert("SDK no cargado");
+
+    // Implementación del fbLoginCallback que enviaste
+    const fbLoginCallback = async (response: any) => {
+      if (response.authResponse) {
+        const code = response.authResponse.code;
+        console.log('Response code recibido:', code);
+
+        // Verificamos que ya tengamos los IDs del listener
+        if (signupData.wabaId && signupData.phoneId) {
+          // LLAMADA AL SERVIDOR: Enviamos el code + los IDs capturados
+          const result = await completeOnboarding(code, signupData.wabaId, signupData.phoneId);
+          
+          if (result.success) {
+            alert("¡Conexión completada y número registrado!");
+            window.location.reload();
+          } else {
+            alert("Error en el registro: " + result.error);
+          }
+        } else {
+          alert("No se recibieron los IDs de la sesión. Intenta de nuevo.");
+        }
+      } else {
+        console.log('El usuario canceló el registro:', response);
+      }
+    };
 
     // @ts-ignore
     window.FB.login((response: any) => {
       if (response.authResponse) {
+        // Obtenemos el code para enviarlo a nuestro servidor
         const code = response.authResponse.code;
         window.location.href = `/whatsapp/success?code=${code}`;
       } else {
-        console.log("El usuario canceló el registro.");
+        console.log("El usuario canceló o no autorizó la aplicación.");
       }
     }, {
+      // Estos son los permisos específicos requeridos
       scope: 'whatsapp_business_management,whatsapp_business_messaging',
       extras: {
         feature: 'whatsapp_embedded_signup',
-        session_info: {
-          version: 'v2',
-          prefill_phone_number: '542994562051' 
-        },
         setup: {
+          // Asegúrate de que esta variable esté en tu .env.local como NEXT_PUBLIC_
           business_config_id: process.env.NEXT_PUBLIC_META_CONFIG_ID 
         }
-      }
+      },
+      // IMPORTANTE: Para recibir un 'code' en lugar de un token corto en el cliente
+      response_type: 'code',
+      override_default_response_type: true,
     });
   };
 
