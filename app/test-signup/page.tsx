@@ -65,8 +65,9 @@ export default function TestSignupPage() {
             "address": {},
             "timezone": null
           },
-          "phone": { "category": null, "description": "" }
-        }
+          "phone": { "category": null, "description": "" },
+        },
+        "featureType": "whatsapp_business_app_onboarding"
       }
     });
   };
