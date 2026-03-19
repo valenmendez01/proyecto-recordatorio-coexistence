@@ -153,9 +153,8 @@ export async function completeOnboarding(code: string, wabaId: string, phoneNumb
       await supabase.from("perfiles").update({
         whatsapp_phone_number_id: phoneNumberId,
         whatsapp_customer_id: wabaId,
+        whatsapp_access_token: businessToken,
         whatsapp_status: 'connected'
-        // Es recomendable guardar también el businessToken si necesitas 
-        // realizar acciones administrativas futuras en nombre del cliente.
       }).eq("id", user.id);
     }
 
@@ -174,21 +173,32 @@ export async function completeOnboarding(code: string, wabaId: string, phoneNumb
  * para la validación de Meta.
  */
 export async function sendTestMessage(recipientPhone: string) {
-  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
-  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
-  const version = process.env.WHATSAPP_API_VERSION || "v21.0";
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
 
-  if (!accessToken || !phoneNumberId) {
-    return { error: "Configuración de WhatsApp incompleta en el servidor." };
+  if (!user) return { error: "No autenticado" };
+
+  // Buscamos las credenciales específicas de ESTE profesional
+  const { data: perfil } = await supabase
+    .from("perfiles")
+    .select("whatsapp_access_token, whatsapp_phone_number_id")
+    .eq("id", user.id)
+    .single();
+
+  if (!perfil?.whatsapp_access_token || !perfil?.whatsapp_phone_number_id) {
+    return { error: "Este perfil no tiene WhatsApp configurado." };
   }
+
+  const version = process.env.NEXT_PUBLIC_WHATSAPP_API_VERSION || "v25.0";
 
   try {
     const response = await fetch(
-      `https://graph.facebook.com/${version}/${phoneNumberId}/messages`,
+      `https://graph.facebook.com/${version}/${perfil.whatsapp_phone_number_id}/messages`,
       {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${accessToken}`,
+          // Usamos el token dinámico de la base de datos
+          Authorization: `Bearer ${perfil.whatsapp_access_token}`, 
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -211,7 +221,6 @@ export async function sendTestMessage(recipientPhone: string) {
 
     return { success: true, messageId: data.messages[0].id };
   } catch (error: any) {
-    console.error("[sendTestMessage] Error:", error);
     return { error: error.message };
   }
 }
