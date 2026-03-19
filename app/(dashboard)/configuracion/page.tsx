@@ -191,7 +191,7 @@ export default function ConfigPage() {
           </div>
           <div className="p-3 bg-default-50 rounded-lg border border-default-200">
             <p className="text-tiny uppercase font-bold text-default-400">Versión API</p>
-            <p className="font-mono text-small">{process.env.NEXT_PUBLIC_WHATSAPP_API_VERSION || "v21.0"}</p>
+            <p className="font-mono text-small">{process.env.NEXT_PUBLIC_WHATSAPP_API_VERSION || "Error"}</p>
           </div>
         </CardBody>
       </Card>

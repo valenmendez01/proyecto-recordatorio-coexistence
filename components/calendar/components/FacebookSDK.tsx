@@ -18,7 +18,7 @@ export default function FacebookSDK() {
                 appId            : '${process.env.NEXT_PUBLIC_META_APP_ID}',
                 autoLogAppEvents : true,
                 xfbml            : true,
-                version          : '${process.env.WHATSAPP_API_VERSION}'
+                version          : '${process.env.NEXT_PUBLIC_WHATSAPP_API_VERSION}'
               });
             };
 
