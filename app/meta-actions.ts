@@ -108,31 +108,6 @@ export async function subscribeAppToWaba(wabaId: string, businessToken: string) 
   return data.success; // Retorna true si es correcto
 }
 
-/**
- * PASO 3: Registrar el número de teléfono con un PIN
- *
- */
-export async function registerPhoneNumber(phoneNumberId: string, businessToken: string) {
-  const url = `${BASE_URL}/${phoneNumberId}/register`;
-
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${businessToken}`
-    },
-    body: JSON.stringify({
-      messaging_product: "whatsapp",
-      pin: "123456" // <DESIRED_PIN>: Debe ser de 6 dígitos
-    })
-  });
-
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error?.message || "Error al registrar el número");
-
-  return data.success; // Retorna true si es correcto
-}
-
 // Función integradora
 export async function completeOnboarding(code: string, wabaId: string, phoneNumberId: string) {
   try {
@@ -140,22 +115,31 @@ export async function completeOnboarding(code: string, wabaId: string, phoneNumb
     const businessToken = await exchangeCodeForBusinessToken(code);
 
     // 2. Suscribir App a la WABA
-    await subscribeAppToWaba(wabaId, businessToken);
+    try {
+      await subscribeAppToWaba(wabaId, businessToken);
+    } catch (webhookError) {
+      console.warn("Advertencia al suscribir webhooks (se continuará el flujo):", webhookError);
+    }
 
-    // 3. Registrar el número de teléfono
-    await registerPhoneNumber(phoneNumberId, businessToken);
-
-    // 4. Guardar todo en Supabase
+    // 3. Guardar todo en Supabase
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-    if (user) {
-      await supabase.from("perfiles").update({
-        whatsapp_phone_number_id: phoneNumberId,
-        whatsapp_customer_id: wabaId,
-        whatsapp_access_token: businessToken,
-        whatsapp_status: 'connected'
-      }).eq("id", user.id);
+    if (!user) {
+      console.error("Error de sesión:", authError);
+      throw new Error("No se pudo obtener la sesión del usuario en el servidor.");
+    }
+
+    const { error: dbError } = await supabase.from("perfiles").update({
+      whatsapp_phone_number_id: phoneNumberId,
+      whatsapp_customer_id: wabaId,
+      whatsapp_access_token: businessToken,
+      whatsapp_status: 'connected'
+    }).eq("id", user.id);
+
+    if (dbError) {
+      console.error("Error al actualizar Supabase:", dbError);
+      throw new Error(`Error en Base de Datos: ${dbError.message}`);
     }
 
     return { success: true };
