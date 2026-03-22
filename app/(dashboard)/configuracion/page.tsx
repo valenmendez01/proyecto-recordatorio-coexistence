@@ -276,7 +276,7 @@ export default function ConfigPage() {
 
       {whatsappState.status === "connected" && (
         <CustomAlert
-          color="danger"
+          color="primary"
           title="¿Querés desconectar tu cuenta?"
         >
           <p className="text-sm text-default-600 mt-1">

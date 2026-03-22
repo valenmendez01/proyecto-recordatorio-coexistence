@@ -2,7 +2,7 @@
 
 import { isSameDay } from "date-fns";
 
-import { useCalendarStore } from "../store/calendar-store"; // <--- 1. Importar Store
+import { useCalendarStore } from "../store/calendar-store";
 
 import { getCurrentTimePosition } from "./calendar-utils";
 
@@ -21,9 +21,13 @@ export function CurrentTimeIndicator({
 }: CurrentTimeIndicatorProps) {
   const { startHour, endHour } = useCalendarStore();
 
-  if (!isTodayInWeek || !isSameDay(day, today)) {
+  // 1. Ahora solo ocultamos el indicador si NO estamos en la semana actual
+  if (!isTodayInWeek) {
     return null;
   }
+
+  // Comprobamos si la columna actual es el día de hoy
+  const isCurrentDay = isSameDay(day, today);
 
   // Ocultar si la hora actual está fuera del rango visible
   const currentHour = currentTime.getHours();
@@ -32,9 +36,9 @@ export function CurrentTimeIndicator({
     return null;
   }
 
-  // Pasar startHour para calcular la posición relativa
   const currentTimePosition = getCurrentTimePosition(currentTime, startHour);
 
+  // 2. Renderizamos la línea lisa para hoy y la punteada tenue para los demás días
   return (
     <div
       className="absolute left-0 right-0 z-20 flex items-center pointer-events-none"
@@ -43,8 +47,16 @@ export function CurrentTimeIndicator({
         transform: "translateY(-50%)",
       }}
     >
-      <div className="size-2 rounded-full bg-red-500 shrink-0 -ml-1" />
-      <div className="h-0.5 bg-red-500 flex-1" />
+      {isCurrentDay ? (
+        <>
+          {/* Línea roja lisa con el punto para el día actual */}
+          <div className="size-2 rounded-full bg-red-500 shrink-0 -ml-1" />
+          <div className="h-0.5 bg-red-500 flex-1" />
+        </>
+      ) : (
+        /* Línea roja punteada y tenue para los demás días de la semana */
+        <div className="border-t-2 border-dashed border-red-500/30 flex-1" />
+      )}
     </div>
   );
 }
