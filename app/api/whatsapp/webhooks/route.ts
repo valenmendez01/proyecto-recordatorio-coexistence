@@ -103,9 +103,16 @@ async function updateProfileStatusByWabaId(wabaId: string, status: string) {
   );
 
   const { error } = await supabase
-    .from("perfiles")
-    .update({ whatsapp_status: status })
-    .eq("whatsapp_customer_id", wabaId);
+  .from("perfiles")
+  .update({
+    whatsapp_status: status,
+    ...(status === "disconnected" && {
+      whatsapp_customer_id: null,
+      whatsapp_phone_number_id: null,
+      whatsapp_access_token: null,
+    }),
+  })
+  .eq("whatsapp_customer_id", wabaId);
 
   if (error) {
     console.error(`[webhook] Error actualizando estado a '${status}' para WABA ${wabaId}:`, error.message);
