@@ -55,7 +55,7 @@ export default function ConfigPage() {
         const data = JSON.parse(event.data);
         console.log("[Meta postMessage] Data recibida:", JSON.stringify(data));
         if (data.type === 'WA_EMBEDDED_SIGNUP') {
-          if (data.event === 'FINISH') {
+          if (data.event === 'FINISH' || data.event === 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING') {
             const ids = {
               wabaId: data.data.waba_id,
               phoneId: data.data.phone_number_id
