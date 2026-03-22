@@ -1,7 +1,7 @@
 // app/(dashboard)/configuracion/page.tsx
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@heroui/button";
 import { Card, CardHeader, CardBody } from "@heroui/card";
 import { Chip } from "@heroui/chip";
@@ -18,8 +18,53 @@ import { sendTestMessage, completeOnboarding } from "@/app/meta-actions";
 import { createClient } from "@/utils/supabase/client";
 import { Input } from "@heroui/input";
 import { addToast, ToastProvider } from "@heroui/toast";
+import { Alert } from "@heroui/alert";
+import { cn } from "@heroui/theme";
 
 const supabase = createClient();
+
+const CustomAlert = forwardRef<HTMLDivElement, React.ComponentProps<typeof Alert> & { title?: string }>(
+  ({ title, children, color = "default", className, classNames = {}, ...props }, ref) => {
+    const colorClass = useMemo(() => {
+      switch (color) {
+        case "primary":   return "before:bg-primary";
+        case "secondary": return "before:bg-secondary";
+        case "success":   return "before:bg-success";
+        case "warning":   return "before:bg-warning";
+        case "danger":    return "before:bg-danger";
+        default:          return "before:bg-default-300";
+      }
+    }, [color]);
+
+    return (
+      <Alert
+        ref={ref}
+        classNames={{
+          ...classNames,
+          base: cn(
+            "bg-default-50 dark:bg-background shadow-sm",
+            "border-1 border-default-200 dark:border-default-100",
+            "relative before:content-[''] before:absolute before:z-10",
+            "before:left-0 before:top-[-1px] before:bottom-[-1px] before:w-1",
+            "rounded-l-none border-l-0",
+            colorClass,
+            classNames.base,
+            className,
+          ),
+          mainWrapper: cn("pt-1", classNames.mainWrapper),
+          iconWrapper: cn("dark:bg-transparent", classNames.iconWrapper),
+        }}
+        color={color}
+        title={title}
+        variant="faded"
+        {...props}
+      >
+        {children}
+      </Alert>
+    );
+  },
+);
+CustomAlert.displayName = "CustomAlert";
 
 export default function ConfigPage() {
   const [loading, setLoading] = useState(false);
@@ -223,19 +268,32 @@ export default function ConfigPage() {
             </div>
           </div>
           
-          {whatsappState.status === "disconnected" ? (
-            <div className="flex gap-2">
-              <Button color="primary" onPress={handleConnect} isLoading={loading}>
-                Conectar WhatsApp
-              </Button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 text-sm text-default-500 max-w-xs text-right">
-              <p>Para desconectar, abrí WhatsApp Business → <span className="font-semibold">Configuración → Cuenta → Plataforma empresarial</span> y tocá {"Desconectar cuenta"}.</p>
-            </div>
+          {whatsappState.status === "disconnected" && (
+            <Button color="primary" onPress={handleConnect} isLoading={loading}>
+              Conectar WhatsApp
+            </Button>
           )}
         </CardBody>
       </Card>
+
+      {whatsappState.status === "connected" && (
+        <CustomAlert
+          color="danger"
+          title="¿Querés desconectar tu cuenta?"
+        >
+          <p className="text-sm text-default-600 mt-1">
+            Abrí WhatsApp Business →{" "}
+            <span className="font-semibold">
+              Configuración → Cuenta → Plataforma empresarial
+            </span>{" "}
+            y tocá <span className="font-semibold">{"Desconectar cuenta"}</span>.
+            Tu estado se actualizará automáticamente.
+          </p>
+        </CustomAlert>
+      )}
+
+      {/* 
+      Solo para pruebas: Enviar mensaje de validación de Meta
 
       <Card className="border-primary/40 border-2 shadow-lg bg-content1">
         <CardHeader className="flex gap-3 px-6 pt-6">
@@ -256,24 +314,7 @@ export default function ConfigPage() {
           </Button>
         </CardBody>
       </Card>
-
-      <Card className="shadow-sm border-none bg-content1">
-        <CardHeader className="px-6 pt-6">
-          <h3 className="text-md font-bold flex items-center gap-2">
-            <Settings2 size={18} /> Identificadores
-          </h3>
-        </CardHeader>
-        <CardBody className="px-6 pb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="p-3 bg-default-50 rounded-lg border border-default-200">
-            <p className="text-tiny uppercase font-bold text-default-400">Phone ID</p>
-            <p className="font-mono text-small truncate">{process.env.NEXT_PUBLIC_WHATSAPP_PHONE_NUMBER_ID || "No configurado"}</p>
-          </div>
-          <div className="p-3 bg-default-50 rounded-lg border border-default-200">
-            <p className="text-tiny uppercase font-bold text-default-400">Versión API</p>
-            <p className="font-mono text-small">{process.env.NEXT_PUBLIC_WHATSAPP_API_VERSION || "Error"}</p>
-          </div>
-        </CardBody>
-      </Card>
+      */}
     </div>
   );
 }
