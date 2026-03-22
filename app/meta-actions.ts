@@ -123,23 +123,30 @@ export async function completeOnboarding(code: string, wabaId: string, phoneNumb
 
     // 3. Guardar todo en Supabase
     const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { data: { user } } = await supabase.auth.getUser();
 
-    if (!user) {
-      console.error("Error de sesión:", authError);
-      throw new Error("No se pudo obtener la sesión del usuario en el servidor.");
-    }
+    if (!user) throw new Error("No hay usuario autenticado.");
 
-    const { error: dbError } = await supabase.from("perfiles").update({
-      whatsapp_phone_number_id: phoneNumberId,
-      whatsapp_customer_id: wabaId,
-      whatsapp_access_token: businessToken,
-      whatsapp_status: 'connected'
-    }).eq("id", user.id);
+    // AGREGAMOS .select() AL FINAL PARA VERIFICAR LA ESCRITURA
+    const { data: perfilActualizado, error: dbError } = await supabase
+      .from("perfiles")
+      .update({
+        whatsapp_phone_number_id: phoneNumberId,
+        whatsapp_customer_id: wabaId,
+        whatsapp_access_token: businessToken,
+        whatsapp_status: 'connected'
+      })
+      .eq("id", user.id)
+      .select();
 
     if (dbError) {
-      console.error("Error al actualizar Supabase:", dbError);
+      console.error("Error DB:", dbError);
       throw new Error(`Error en Base de Datos: ${dbError.message}`);
+    }
+
+    // SI EL ARREGLO ESTÁ VACÍO, SIGNIFICA QUE EL PERFIL NO EXISTE
+    if (!perfilActualizado || perfilActualizado.length === 0) {
+      throw new Error("El perfil no existe en la base de datos. Crea tu perfil primero.");
     }
 
     return { success: true };

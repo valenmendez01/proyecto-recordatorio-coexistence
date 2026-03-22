@@ -74,38 +74,37 @@ export default function ConfigPage() {
         const procesarOnboarding = async () => {
           setLoading(true);
           
-          // Extraemos los IDs desde la referencia (ya no desde el estado)
-          const { wabaId, phoneId } = signupDataRef.current;
-          
-          if (wabaId && phoneId) {
-            try {
-              const result = await completeOnboarding(code, wabaId, phoneId);
-              
-              if (result.success) {
-                addToast({
-                  title: "¡Conexión completada!",
-                  description: "El número ha sido registrado exitosamente.",
-                  color: "success",
-                });
-                setTimeout(() => window.location.reload(), 1500);
-              } else {
-                addToast({
-                  title: "Error en el registro",
-                  description: result.error,
-                  color: "danger",
-                });
+          // ESPERAMOS 1 SEGUNDO PARA EVITAR LA CONDICIÓN DE CARRERA DEL POPUP
+          setTimeout(async () => {
+            const { wabaId, phoneId } = signupDataRef.current;
+            
+            if (wabaId && phoneId) {
+              try {
+                const result = await completeOnboarding(code, wabaId, phoneId);
+                
+                if (result.success) {
+                  addToast({
+                    title: "¡Conexión completada!",
+                    description: "Tus credenciales se han guardado en la base de datos.",
+                    color: "success",
+                  });
+                  setTimeout(() => window.location.reload(), 1500);
+                } else {
+                  addToast({ title: "Error al guardar", description: result.error, color: "danger" });
+                }
+              } catch (err: any) {
+                addToast({ title: "Error técnico", description: err.message, color: "danger" });
               }
-            } catch (err) {
-              console.error("Error técnico:", err);
+            } else {
+               // Si después de 1 segundo siguen vacíos, avisamos claramente
+              addToast({
+                title: "Error de sincronización",
+                description: "Meta no devolvió los identificadores de tu cuenta.",
+                color: "danger",
+              });
             }
-          } else {
-            addToast({
-              title: "Error de sesión",
-              description: "No se recibieron los IDs de la sesión (waba_id y phone_number_id). Intenta de nuevo.",
-              color: "danger",
-            });
-          }
-          setLoading(false);
+            setLoading(false);
+          }, 1000); // 1000 milisegundos de gracia
         };
 
         procesarOnboarding();
