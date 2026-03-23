@@ -230,3 +230,77 @@ export async function sendTestMessage(recipientPhone: string) {
     return { error: error.message };
   }
 }
+
+export async function registrarPlantillaMeta(header: string, body: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("No autenticado");
+
+  const { data: perfil } = await supabase.from("perfiles").select("*").eq("id", user.id).single();
+  if (!perfil?.whatsapp_customer_id) throw new Error("WABA ID no encontrado");
+
+  // Definición de mapeo y ejemplos
+  const varsMapping = [
+    { tag: "{nombre}", example: "Juan" },
+    { tag: "{apellido}", example: "Perez" },
+    { tag: "{fecha}", example: "Lunes 16 de abril" },
+    { tag: "{hora}", example: "09:00 hs" },
+    { tag: "{link}", example: "https://ejemplo.com/confirmar" }
+  ];
+
+  let finalBody = body;
+  const exampleValues: string[] = [];
+  let currentIndex = 1;
+
+  // Procesamos el cuerpo para reemplazar tags por {{n}} y recolectar ejemplos
+  varsMapping.forEach((item) => {
+    if (finalBody.includes(item.tag)) {
+      finalBody = finalBody.replaceAll(item.tag, `{{${currentIndex}}}`);
+      exampleValues.push(item.example);
+      currentIndex++;
+    }
+  });
+
+  const response = await fetch(
+    `https://graph.facebook.com/${process.env.NEXT_PUBLIC_WHATSAPP_API_VERSION}/${perfil.whatsapp_customer_id}/message_templates`,
+    {
+      method: 'POST',
+      headers: { 
+        'Authorization': `Bearer ${perfil.whatsapp_access_token}`,
+        'Content-Type': 'application/json' 
+      },
+      body: JSON.stringify({
+        name: `recordatorio_${Date.now()}`,
+        category: "UTILITY",
+        language: "es_AR",
+        components: [
+          ...(header ? [{ type: "HEADER", format: "TEXT", text: header }] : []),
+          { 
+            type: "BODY", 
+            text: finalBody,
+            // Agregamos el objeto example requerido por Meta
+            ...(exampleValues.length > 0 && {
+              example: {
+                body_text: [exampleValues] 
+              }
+            })
+          }
+        ]
+      })
+    }
+  );
+
+  const metaData = await response.json();
+  if (!response.ok) throw new Error(metaData.error?.message || "Error en Meta");
+
+  // Guardar en Supabase (usando el texto original con {tags} para que sea editable)
+  await supabase.from("plantillas").insert({
+    perfil_id: user.id,
+    nombre_meta: metaData.name || metaData.id,
+    header_text: header,
+    body_text: body,
+    status: 'PENDING'
+  });
+
+  return { success: true };
+}

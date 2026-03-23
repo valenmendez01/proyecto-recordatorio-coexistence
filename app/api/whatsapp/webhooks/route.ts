@@ -31,6 +31,11 @@ interface WhatsAppValue {
   phone_number?: string;
   event?: string;
   waba_info?: { waba_id: string; owner_business_id: string; partner_app_id?: string };
+  // message_template fields
+  message_template_id?: string;
+  message_template_name?: string;
+  status?: string;
+  disable_info?: any;
 }
 
 interface WhatsAppChange {
@@ -206,6 +211,31 @@ export async function POST(req: NextRequest) {
           default:
             console.log(`[webhook] ℹ️ account_update | event: ${value.event} | WABA: ${wabaIdFromInfo}`);
         }
+        continue;
+      }
+
+      // ── NUEVO: Eventos de actualización de plantillas ──────────────────────
+      if (field === "message_template_status_update") {
+
+        const { message_template_name, status } = value;
+
+        // Validación de seguridad para TypeScript y para evitar errores en runtime
+        if (!message_template_name || !status) {
+          console.warn("[webhook] Falta información en la actualización de plantilla");
+          continue;
+        }
+        
+        const supabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!, 
+          process.env.SUPABASE_SERVICE_ROLE_KEY!
+        );
+        
+        await supabase
+          .from("plantillas")
+          .update({ status: status }) 
+          .eq("nombre_meta", message_template_name);
+          
+        console.log(`[webhook] Plantilla ${message_template_name} actualizada a: ${status}`);
         continue;
       }
 

@@ -5,13 +5,15 @@ import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@heroui/button";
 import { Card, CardBody } from "@heroui/card";
 import { Chip } from "@heroui/chip";
-import { CheckCircle2, XCircle, Zap } from "lucide-react";
-import { sendTestMessage, completeOnboarding } from "@/app/meta-actions"; 
+import { CheckCircle, CheckCircle2, Clock, XCircle, Zap } from "lucide-react";
+import { sendTestMessage, completeOnboarding, registrarPlantillaMeta } from "@/app/meta-actions"; 
 import { createClient } from "@/utils/supabase/client";
 import { addToast, ToastProvider } from "@heroui/toast";
 import { Alert } from "@heroui/alert";
+import { Accordion, AccordionItem } from "@heroui/accordion";
 import { cn } from "@heroui/theme";
 import { Skeleton } from "@heroui/skeleton";
+import { Input, Textarea } from "@heroui/input";
 
 const supabase = createClient();
 
@@ -65,6 +67,12 @@ export default function ConfigPage() {
     status: "connected" | "disconnected";
     loading: boolean;
   }>({ status: "disconnected", loading: true });
+
+  const [templateHeader, setTemplateHeader] = useState("");
+  const [templateBody, setTemplateBody] = useState("Hola {nombre}, te recordamos tu cita el día {fecha} a las {hora}.");
+  const [isSaving, setIsSaving] = useState(false);
+  const [plantillas, setPlantillas] = useState<any[]>([]);
+  const [loadingPlantillas, setLoadingPlantillas] = useState(true);
 
   const [testLoading, setTestLoading] = useState(false);
   const [testPhone, setTestPhone] = useState("");
@@ -222,6 +230,19 @@ export default function ConfigPage() {
     else alert("¡Mensaje enviado con éxito!");
   };
 
+  const cargarPlantillas = async () => {
+    setLoadingPlantillas(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data } = await supabase
+        .from("plantillas")
+        .select("*")
+        .order("created_at", { ascending: false });
+      setPlantillas(data || []);
+    }
+    setLoadingPlantillas(false);
+  };
+
   const checkStatus = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
@@ -232,7 +253,25 @@ export default function ConfigPage() {
     });
   };
 
-  useEffect(() => { checkStatus(); }, []);
+  useEffect(() => { 
+    checkStatus(); 
+    cargarPlantillas();
+  }, []);
+
+  const handleSaveTemplate = async () => {
+    setIsSaving(true);
+    try {
+      const res = await registrarPlantillaMeta(templateHeader, templateBody);
+      if (res.success) {
+        alert("Plantilla enviada a revisión");
+        cargarPlantillas();
+      }
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div className="flex flex-col gap-8 w-full max-w-5xl mx-auto p-4 md:p-8">
@@ -267,7 +306,7 @@ export default function ConfigPage() {
           </div>
 
           {!whatsappState.loading && whatsappState.status === "disconnected" && (
-            <Button color="primary" onClick={handleConnect} isLoading={loading}>
+            <Button color="primary" onPress={handleConnect} isLoading={loading}>
               Conectar WhatsApp
             </Button>
           )}
@@ -313,6 +352,119 @@ export default function ConfigPage() {
         </CardBody>
       </Card>
       */}
+
+      <Card className="bg-content1 mt-8">
+        <CardBody className="p-6 flex flex-col gap-4">
+          <div className="flex flex-col gap-1">
+            <h3 className="text-lg font-bold">Plantilla de Recordatorio</h3>
+            <p className="text-sm text-default-500 mb-2">
+              Personaliza el mensaje que recibirán tus pacientes. 
+            </p>
+
+            {/* LEYENDA DE VARIABLES */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-4">
+              {[
+                { tag: "{nombre}", desc: "Nombre del paciente" },
+                { tag: "{apellido}", desc: "Apellido del paciente" },
+                { tag: "{fecha}", desc: "Fecha del turno" },
+                { tag: "{hora}", desc: "Hora del turno" },
+                { tag: "{link}", desc: "Link de confirmación" },
+              ].map((item) => (
+                <div key={item.tag} className="flex flex-col gap-1 bg-default-100/50 p-2 rounded-lg border border-default-200">
+                  <span className="text-primary font-mono text-xs font-bold">{item.tag}</span>
+                  <span className="text-[10px] text-default-500 uppercase leading-tight">{item.desc}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          <Input 
+            label="Encabezado (Opcional)" 
+            placeholder="Ej: Confirmación de Turno" 
+            value={templateHeader}
+            onValueChange={setTemplateHeader}
+          />
+          
+          <Textarea 
+            label="Cuerpo del mensaje" 
+            placeholder="Escribe el mensaje aquí..."
+            value={templateBody}
+            onValueChange={setTemplateBody}
+            minRows={4}
+          />
+
+          <div className="bg-primary/5 p-4 rounded-lg border border-primary/20">
+            <p className="text-xs font-bold text-primary uppercase mb-2">Vista Previa:</p>
+            <p className="text-sm font-bold">{templateHeader}</p>
+            <p className="text-sm whitespace-pre-wrap">{templateBody.replace(/{nombre}/g, "Juan")}</p>
+          </div>
+
+          <Button 
+            color="primary" 
+            onPress={handleSaveTemplate} 
+            isLoading={isSaving}
+          >
+            Guardar y Enviar a Revisión
+          </Button>
+        </CardBody>
+      </Card>
+
+      <div className="flex flex-col gap-4 mt-8">
+        <h3 className="text-xl font-bold px-1">Mis Plantillas en Meta</h3>
+        
+        {loadingPlantillas ? (
+          <Skeleton className="rounded-lg h-24 w-full" />
+        ) : plantillas.length === 0 ? (
+          <p className="text-default-400 text-sm px-1 italic">Aún no has creado plantillas.</p>
+        ) : (
+          <Accordion variant="splitted" selectionMode="multiple" className="px-0">
+            {plantillas.map((p) => (
+              <AccordionItem
+                key={p.id}
+                aria-label={p.nombre_meta}
+                subtitle={
+                  <div className="flex gap-2 items-center mt-1">
+                    <Chip 
+                      size="sm" 
+                      variant="flat" 
+                      color={
+                        p.status === 'APPROVED' ? 'success' : 
+                        p.status === 'REJECTED' ? 'danger' : 'warning'
+                      }
+                      startContent={
+                        p.status === 'APPROVED' ? <CheckCircle size={12}/> : 
+                        p.status === 'REJECTED' ? <XCircle size={12}/> : <Clock size={12}/>
+                      }
+                    >
+                      {p.status === 'APPROVED' ? 'Aprobada' : 
+                        p.status === 'REJECTED' ? 'Rechazada' : 'En Revisión'}
+                    </Chip>
+                    <span className="text-tiny text-default-400">
+                      {new Date(p.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                }
+                title={<span className="font-semibold text-sm uppercase">{p.nombre_meta}</span>}
+              >
+                <div className="flex flex-col gap-3 pb-4">
+                  {p.header_text && (
+                    <div>
+                      <p className="text-tiny font-bold text-default-400 uppercase">Encabezado:</p>
+                      <p className="text-sm font-bold">{p.header_text}</p>
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-tiny font-bold text-default-400 uppercase">Cuerpo:</p>
+                    <p className="text-sm whitespace-pre-wrap bg-default-50 p-3 rounded-md border border-default-100">
+                      {p.body_text}
+                    </p>
+                  </div>
+                </div>
+              </AccordionItem>
+            ))}
+          </Accordion>
+        )}
+      </div>
     </div>
   );
 }
