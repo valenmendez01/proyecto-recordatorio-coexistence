@@ -3,7 +3,7 @@
 
 import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@heroui/button";
-import { Card, CardBody } from "@heroui/card";
+import { Card, CardBody, CardHeader } from "@heroui/card";
 import { Chip } from "@heroui/chip";
 import { CheckCircle, CheckCircle2, XCircle, Zap } from "lucide-react";
 import { sendTestMessage, completeOnboarding, enviarPlantillasARevision } from "@/app/meta-actions"; 
@@ -12,6 +12,7 @@ import { addToast, ToastProvider } from "@heroui/toast";
 import { Alert } from "@heroui/alert";
 import { cn } from "@heroui/theme";
 import { Skeleton } from "@heroui/skeleton";
+import { Divider } from "@heroui/divider";
 
 const supabase = createClient();
 
@@ -64,41 +65,41 @@ const PREDEFINED_TEMPLATES = [
     title: "Recordatorio de cita",
     header: "Recordatorio de cita",
     body: `Hola {nombre} {apellido}, te recuerdo que tenés un turno: 
-      📅 Día: *{fecha} a las {hora}*
-      📍 Dirección: Roca 1239
+📅 Día: *{fecha} a las {hora}*
+📍 Dirección: Roca 1239
 
-      🔹 Si necesitás reprogramar tu cita, hacelo con al menos 12 h de anticipación.
-      🔹 En caso de síntomas compatibles con resfrío, por favor reprogramá tu visita.
+🔹 Si necesitás reprogramar tu cita, hacelo con al menos 12 h de anticipación.
+🔹 En caso de síntomas compatibles con resfrío, por favor reprogramá tu visita.
 
-      *Ingresa al siguiente link para responder:* {link}
+*Ingresa al siguiente link para responder:* {link}
 
-      Muchas gracias! Saludos.`,
+Muchas gracias! Saludos.`,
   },
   {
     id: "reserva",
     title: "Reserva de turno",
     header: "Reserva de turno",
     body: `Hola {nombre} {apellido}, tu turno ha sido confirmado:
-      📅 Día: *{fecha} a las {hora}*
-      📍 Dirección: Roca 1239
+📅 Día: *{fecha} a las {hora}*
+📍 Dirección: Roca 1239
 
-      🔹 Si necesitás reprogramar tu cita, hacelo con al menos 12 h de anticipación.
-      🔹 En caso de síntomas compatibles con resfrío, por favor reprogramá tu visita.
+🔹 Si necesitás reprogramar tu cita, hacelo con al menos 12 h de anticipación.
+🔹 En caso de síntomas compatibles con resfrío, por favor reprogramá tu visita.
 
-      Muchas gracias! Saludos.`,
+Muchas gracias! Saludos.`,
   },
   {
     id: "actualizacion",
     title: "Actualización de turno",
     header: "Actualización de turno",
     body: `Hola {nombre} {apellido}, tu turno fue modificado: 
-      📅 Día: *{fecha} a las {hora}*
-      📍 Dirección: Roca 1239
+📅 Día: *{fecha} a las {hora}*
+📍 Dirección: Roca 1239
 
-      🔹 Si necesitás reprogramar tu cita, hacelo con al menos 12 h de anticipación.
-      🔹 En caso de síntomas compatibles con resfrío, por favor reprogramá tu visita.
+🔹 Si necesitás reprogramar tu cita, hacelo con al menos 12 h de anticipación.
+🔹 En caso de síntomas compatibles con resfrío, por favor reprogramá tu visita.
 
-      Muchas gracias! Saludos.`,
+Muchas gracias! Saludos.`,
   }
 ];
 
@@ -324,6 +325,17 @@ export default function ConfigPage() {
     }
   }
 
+  function renderWhatsAppText(text: string) {
+    // Divide por *texto* y alterna entre normal y negrita
+    const parts = text.split(/(\*[^*]+\*)/g);
+    return parts.map((part, i) => {
+      if (part.startsWith("*") && part.endsWith("*")) {
+        return <strong key={i}>{part.slice(1, -1)}</strong>;
+      }
+      return part;
+    });
+  }
+
   return (
     <div className="flex flex-col gap-8 w-full max-w-5xl mx-auto p-4 md:p-8">
       <div className="flex flex-col gap-2">
@@ -416,7 +428,6 @@ export default function ConfigPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {PREDEFINED_TEMPLATES.map((temp) => {
-              // Buscamos si esta plantilla ya existe en DB para mostrar su estado real
               const enDB = plantillas.find((p) => p.header_text === temp.header);
               const statusColor = enDB?.status === "APPROVED"
                 ? "success"
@@ -426,25 +437,42 @@ export default function ConfigPage() {
                 ? "warning"
                 : "default";
 
+              // Reemplaza las variables con valores de ejemplo para la preview
+              const previewBody = temp.body
+                .replace(/{nombre}/g, "Juan")
+                .replace(/{apellido}/g, "Pérez")
+                .replace(/{fecha}/g, "Lunes 16 de abril")
+                .replace(/{hora}/g, "09:00 hs")
+                .replace(/{link}/g, "https://ejemplo.com/confirmar");
+
               return (
-                <Card key={temp.id}>
-                  <CardBody className="p-4 flex flex-col justify-between gap-3">
-                    <div className="flex flex-col gap-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <div className="p-1.5 bg-primary/10 rounded-lg text-primary">
-                            <CheckCircle size={16} />
-                          </div>
-                          <p className="text-sm font-bold">{temp.title}</p>
-                        </div>
-                        {enDB && (
-                          <Chip size="sm" color={statusColor} variant="flat">
-                            {enDB.status}
-                          </Chip>
-                        )}
+                <Card key={temp.id} className="bg-content1">
+                  <CardHeader className="flex items-center justify-between p-4">
+                    <p className="text-sm font-semibold text-default-600">{temp.title}</p>
+                    {enDB && (
+                      <Chip className="flex justify-end" size="sm" color={statusColor} variant="flat">
+                        {enDB.status}
+                      </Chip>
+                    )}
+                  </CardHeader>
+
+                  <Divider />
+
+                  <CardBody className="bg-[#efeae2] dark:bg-[#0d1418] p-4">
+                    {/* Burbuja entrante blanca */}
+                    <div className="relative">
+                      {/* Triángulo de la punta */}
+                      <div className="absolute -left-2 top-0 w-0 h-0 
+                        border-t-[8px] border-t-white dark:border-t-[#202c33]
+                        border-l-[8px] border-l-transparent" 
+                      />
+                      <div className="max-w-[97%] bg-white dark:bg-[#202c33] rounded-lg rounded-tl-none px-3 py-2 shadow-sm">
+                        <p className="text-sm font-bold text-[#111b21] dark:text-white mb-1">{temp.header}</p>
+                        <p className="text-xs text-[#111b21] dark:text-[#e9edef] whitespace-pre-wrap leading-relaxed">
+                          {renderWhatsAppText(previewBody)}
+                        </p>
+                        <p className="text-[10px] text-[#667781] text-right mt-1">1:52</p>
                       </div>
-                      <p className="text-xs font-bold text-default-600 truncate mt-2">{temp.header}</p>
-                      <p className="text-xs text-default-500 italic line-clamp-3">{temp.body}</p>
                     </div>
                   </CardBody>
                 </Card>
@@ -460,7 +488,7 @@ export default function ConfigPage() {
             onPress={handleEnviarPlantillas}
             className="self-start"
           >
-            {plantillasEnviadas ? "✅ Plantillas enviadas a revisión" : "Enviar plantillas a revisión"}
+            {plantillasEnviadas ? "Plantillas enviadas a revisión" : "Enviar plantillas a revisión"}
           </Button>
         </div>
       )}
