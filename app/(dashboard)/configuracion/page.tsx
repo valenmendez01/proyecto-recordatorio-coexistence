@@ -1,17 +1,18 @@
 // app/(dashboard)/configuracion/page.tsx
 "use client";
 
-import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@heroui/button";
 import { Card, CardBody, CardHeader } from "@heroui/card";
 import { Chip } from "@heroui/chip";
-import { CheckCircle, CheckCircle2, XCircle, Zap } from "lucide-react";
-import { sendTestMessage, completeOnboarding, enviarPlantillasARevision } from "@/app/meta-actions"; 
+import { CheckCircle2, XCircle, Zap } from "lucide-react";
+import { completeOnboarding, enviarPlantillasARevision } from "@/app/meta-actions";
 import { createClient } from "@/utils/supabase/client";
-import { addToast, ToastProvider } from "@heroui/toast";
+import { addToast } from "@heroui/toast";
 import { Alert } from "@heroui/alert";
 import { Skeleton } from "@heroui/skeleton";
 import { Divider } from "@heroui/divider";
+import useSWR from "swr";
 
 const supabase = createClient();
 
@@ -56,41 +57,55 @@ Muchas gracias! Saludos.`,
 🔹 En caso de síntomas compatibles con resfrío, por favor reprogramá tu visita.
 
 Muchas gracias! Saludos.`,
-  }
+  },
 ];
 
 export default function ConfigPage() {
   const [loading, setLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [whatsappState, setWhatsappState] = useState<{
-    status: "connected" | "disconnected";
-    loading: boolean;
-  }>({ status: "disconnected", loading: true });
-
-  const [isSaving, setIsSaving] = useState(false);
-  const [plantillas, setPlantillas] = useState<any[]>([]);
-  const [loadingPlantillas, setLoadingPlantillas] = useState(true);
-
-  const [testLoading, setTestLoading] = useState(false);
-  const [testPhone, setTestPhone] = useState("");
-
-  // Almacenamos los IDs (WABA y Phone) que llegan por el 'message event' de Meta
-  const [signupData, setSignupData] = useState<{ wabaId?: string; phoneId?: string }>({});
-
-  // Usamos useRef en lugar de useState para tener el valor disponible de forma instantánea
-  const signupDataRef = useRef<{ wabaId?: string; phoneId?: string }>({});
-
-  const [sendingId, setSendingId] = useState<string | null>(null);
 
   const [enviandoPlantillas, setEnviandoPlantillas] = useState(false);
-  const [plantillasEnviadas, setPlantillasEnviadas] = useState(false);
 
+  // Usamos useRef para tener el valor disponible de forma instantánea en el callback de FB
+  const signupDataRef = useRef<{ wabaId?: string; phoneId?: string }>({});
+
+  // SWR para plantillas — reemplaza cargarPlantillas + useState + useEffect derivado
+  const { data: plantillasData, mutate: mutatePlantillas } = useSWR(
+    "plantillas",
+    async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return [];
+      const { data } = await supabase
+        .from("plantillas")
+        .select("*")
+        .order("created_at", { ascending: false });
+      return data || [];
+    },
+    { revalidateOnFocus: false }
+  );
+
+  const { data: whatsappStatus, isLoading: whatsappLoading } = useSWR(
+    "whatsapp-status",
+    async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return "disconnected";
+      const { data } = await supabase
+        .from("perfiles")
+        .select("whatsapp_status")
+        .eq("id", user.id)
+        .maybeSingle();
+      return data?.whatsapp_status === "connected" ? "connected" : "disconnected";
+    },
+    { revalidateOnFocus: false } // 👈 clave: no revalida al volver al tab
+  );
+
+  const plantillas = plantillasData ?? [];
+  const plantillasEnviadas = plantillas.length > 0;
+
+  // Escuchamos el evento nativo 'message' de Meta (Embedded Signup)
   useEffect(() => {
-    // Escuchamos el evento nativo 'message' exactamente como en tu archivo de prueba
     const handleMessage = (event: MessageEvent) => {
-      // Log para diagnosticar qué origins llegan realmente
       console.log("[Meta postMessage] Origin recibido:", event.origin);
-      
+
       if (
         event.origin !== "https://www.facebook.com" &&
         event.origin !== "https://web.facebook.com" &&
@@ -101,16 +116,17 @@ export default function ConfigPage() {
       try {
         const data = JSON.parse(event.data);
         console.log("[Meta postMessage] Data recibida:", JSON.stringify(data));
-        if (data.type === 'WA_EMBEDDED_SIGNUP') {
-          if (data.event === 'FINISH' || data.event === 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING') {
+        if (data.type === "WA_EMBEDDED_SIGNUP") {
+          if (
+            data.event === "FINISH" ||
+            data.event === "FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING"
+          ) {
             const ids = {
               wabaId: data.data.waba_id,
-              phoneId: data.data.phone_number_id
+              phoneId: data.data.phone_number_id,
             };
             console.log("[Meta postMessage] IDs capturados:", ids);
-            // Guardamos en ref Y en state para tener ambos sincronizados
             signupDataRef.current = ids;
-            setSignupData(ids);
           }
         }
       } catch (err) {
@@ -118,8 +134,8 @@ export default function ConfigPage() {
       }
     };
 
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
   }, []);
 
   // PASO 2 y 3: Abrir Popup y Procesar Devolución de Llamada
@@ -135,7 +151,7 @@ export default function ConfigPage() {
 
         const procesarOnboarding = async () => {
           setLoading(true);
-          
+
           // Esperamos hasta 3 segundos a que lleguen los IDs del postMessage
           // usando polling cada 200ms en vez de un timeout fijo
           const IDS_TIMEOUT_MS = 3000;
@@ -155,12 +171,12 @@ export default function ConfigPage() {
 
           const { wabaId, phoneId } = signupDataRef.current;
           console.log("[procesarOnboarding] IDs después de espera:", { wabaId, phoneId });
-          
+
           if (wabaId && phoneId) {
             try {
               const result = await completeOnboarding(code, wabaId, phoneId);
               console.log("[procesarOnboarding] Resultado:", result);
-              
+
               if (result.success) {
                 addToast({
                   title: "¡Conexión completada!",
@@ -187,18 +203,15 @@ export default function ConfigPage() {
         };
 
         procesarOnboarding();
-        
       } else {
-        console.log('El usuario canceló el registro:', response);
+        console.log("El usuario canceló el registro:", response);
       }
     };
 
-    // Usamos EXACTAMENTE la configuración que te funciona en tu archivo de prueba
     // @ts-ignore
     window.FB.login(fbLoginCallback, {
       config_id: process.env.NEXT_PUBLIC_META_CONFIG_ID,
-      // scope: 'whatsapp_business_management,whatsapp_business_messaging',
-      response_type: 'code',
+      response_type: "code",
       override_default_response_type: true,
       extras: {
         version: "v3",
@@ -209,60 +222,15 @@ export default function ConfigPage() {
             email: "info@odontologabetianamorante.com.ar",
             phone: {},
             address: {},
-            timezone: null
+            timezone: null,
           },
           phone: { category: null, description: "" },
         },
         featureType: "whatsapp_business_app_onboarding",
-        sessionInfoVersion: "3"
-      }
+        sessionInfoVersion: "3",
+      },
     });
   };
-
-  const handleSendTest = async () => {
-    if (!testPhone) {
-      setErrorMsg("Ingresa un número para la prueba.");
-      return;
-    }
-    setTestLoading(true);
-    const result = await sendTestMessage(testPhone);
-    setTestLoading(false);
-
-    if (result.error) alert("Error: " + result.error);
-    else alert("¡Mensaje enviado con éxito!");
-  };
-
-  const cargarPlantillas = async () => {
-    setLoadingPlantillas(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { data } = await supabase
-        .from("plantillas")
-        .select("*")
-        .order("created_at", { ascending: false });
-      setPlantillas(data || []);
-    }
-    setLoadingPlantillas(false);
-  };
-
-  const checkStatus = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data } = await supabase.from("perfiles").select("whatsapp_status").eq("id", user.id).maybeSingle();
-    setWhatsappState({
-      status: data?.whatsapp_status === "connected" ? "connected" : "disconnected",
-      loading: false,
-    });
-  };
-
-  useEffect(() => { 
-    checkStatus(); 
-    cargarPlantillas();
-  }, []);
-
-  useEffect(() => {
-    if (plantillas.length > 0) setPlantillasEnviadas(true);
-  }, [plantillas]);
 
   // Función para enviar plantillas predefinidas
   async function handleEnviarPlantillas() {
@@ -275,14 +243,16 @@ export default function ConfigPage() {
     } else if (result.warning) {
       addToast({ title: "Atención", description: result.warning, color: "warning" });
     } else {
-      addToast({ title: "¡Listo!", description: "Plantillas enviadas. Meta las revisará en hasta 24 hs.", color: "success" });
-      setPlantillasEnviadas(true);
-      cargarPlantillas(); // recarga para reflejar el estado PENDING en la UI
+      addToast({
+        title: "¡Listo!",
+        description: "Plantillas enviadas. Meta las revisará en hasta 24 hs.",
+        color: "success",
+      });
+      mutatePlantillas(); // SWR recarga para reflejar el estado PENDING en la UI
     }
   }
 
   function renderWhatsAppText(text: string) {
-    // Divide por *texto* y alterna entre normal y negrita
     const parts = text.split(/(\*[^*]+\*)/g);
     return parts.map((part, i) => {
       if (part.startsWith("*") && part.endsWith("*")) {
@@ -302,29 +272,41 @@ export default function ConfigPage() {
       <Card className="bg-content1">
         <CardBody className="flex flex-row items-center justify-between p-6">
           <div className="flex items-center gap-4">
-            <Skeleton isLoaded={!whatsappState.loading} className="rounded-full">
-              <div className={`p-3 rounded-full ${whatsappState.status === 'connected' ? 'bg-success/10 text-success' : 'bg-default-100 text-default-400'}`}>
+            <Skeleton isLoaded={!whatsappLoading} className="rounded-full">
+              <div
+                className={`p-3 rounded-full ${
+                  whatsappStatus === "connected"
+                    ? "bg-success/10 text-success"
+                    : "bg-default-100 text-default-400"
+                }`}
+              >
                 <Zap size={24} />
               </div>
             </Skeleton>
             <div className="flex flex-col gap-2">
-              <Skeleton isLoaded={!whatsappState.loading} className="rounded-lg">
+              <Skeleton isLoaded={!whatsappLoading} className="rounded-lg">
                 <p className="font-bold">Estado de la cuenta</p>
               </Skeleton>
-              <Skeleton isLoaded={!whatsappState.loading} className="rounded-lg w-24">
+              <Skeleton isLoaded={!whatsappLoading} className="rounded-lg w-24">
                 <Chip
-                  color={whatsappState.status === "connected" ? "success" : "default"}
+                  color={whatsappStatus === "connected" ? "success" : "default"}
                   variant="flat"
                   size="sm"
-                  startContent={whatsappState.status === "connected" ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
+                  startContent={
+                    whatsappStatus === "connected" ? (
+                      <CheckCircle2 size={14} />
+                    ) : (
+                      <XCircle size={14} />
+                    )
+                  }
                 >
-                  {whatsappState.status === "connected" ? "Conectado" : "Desconectado"}
+                  {whatsappStatus === "connected" ? "Conectado" : "Desconectado"}
                 </Chip>
               </Skeleton>
             </div>
           </div>
 
-          {!whatsappState.loading && whatsappState.status === "disconnected" && (
+          {!whatsappLoading && whatsappStatus === "disconnected" && (
             <Button color="primary" onPress={handleConnect} isLoading={loading}>
               Conectar WhatsApp
             </Button>
@@ -332,18 +314,15 @@ export default function ConfigPage() {
         </CardBody>
       </Card>
 
-      {whatsappState.status === "connected" && (
-        <Alert
-          color="primary"
-          title="¿Querés desconectar tu cuenta?"
-        >
+      {whatsappStatus === "connected" && (
+        <Alert color="primary" title="¿Querés desconectar tu cuenta?">
           <p className="text-sm text-default-600 mt-1">
             Abrí WhatsApp Business →{" "}
             <span className="font-semibold">
               Configuración → Cuenta → Plataforma empresarial
             </span>{" "}
-            y tocá <span className="font-semibold">{"Desconectar cuenta"}</span>.
-            Tu estado se actualizará automáticamente.
+            y tocá <span className="font-semibold">{"Desconectar cuenta"}</span>. Tu estado se
+            actualizará automáticamente.
           </p>
         </Alert>
       )}
@@ -373,27 +352,28 @@ export default function ConfigPage() {
       */}
 
       {/* PLANTILLAS (Solo si está conectado) */}
-      {whatsappState.status === "connected" && (
+      {whatsappStatus === "connected" && (
         <div className="flex flex-col gap-4 mt-4">
           <div className="flex flex-col gap-1 px-1">
             <h3 className="text-xl font-bold">Plantillas</h3>
             <p className="text-sm text-default-500">
-              Se usan para enviar mensajes automáticos y preaprobados a tus clientes fuera de la conversación activa.
+              Se usan para enviar mensajes automáticos y preaprobados a tus clientes fuera de la
+              conversación activa.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {PREDEFINED_TEMPLATES.map((temp) => {
               const enDB = plantillas.find((p) => p.header_text === temp.header);
-              const statusColor = enDB?.status === "APPROVED"
-                ? "success"
-                : enDB?.status === "REJECTED"
-                ? "danger"
-                : enDB?.status === "PENDING"
-                ? "warning"
-                : "default";
+              const statusColor =
+                enDB?.status === "APPROVED"
+                  ? "success"
+                  : enDB?.status === "REJECTED"
+                  ? "danger"
+                  : enDB?.status === "PENDING"
+                  ? "warning"
+                  : "default";
 
-              // Reemplaza las variables con valores de ejemplo para la preview
               const previewBody = temp.body
                 .replace(/{nombre}/g, "Juan")
                 .replace(/{apellido}/g, "Pérez")
@@ -415,15 +395,16 @@ export default function ConfigPage() {
                   <Divider />
 
                   <CardBody className="bg-[#efeae2] dark:bg-[#0d1418] p-4">
-                    {/* Burbuja entrante blanca */}
                     <div className="relative">
-                      {/* Triángulo de la punta */}
-                      <div className="absolute -left-2 top-0 w-0 h-0 
+                      <div
+                        className="absolute -left-2 top-0 w-0 h-0 
                         border-t-[8px] border-t-white dark:border-t-[#202c33]
-                        border-l-[8px] border-l-transparent" 
+                        border-l-[8px] border-l-transparent"
                       />
                       <div className="max-w-[97%] bg-white dark:bg-[#202c33] rounded-lg rounded-tl-none px-3 py-2 shadow-sm">
-                        <p className="text-sm font-bold text-[#111b21] dark:text-white mb-1">{temp.header}</p>
+                        <p className="text-sm font-bold text-[#111b21] dark:text-white mb-1">
+                          {temp.header}
+                        </p>
                         <p className="text-xs text-[#111b21] dark:text-[#e9edef] whitespace-pre-wrap leading-relaxed">
                           {renderWhatsAppText(previewBody)}
                         </p>
@@ -436,7 +417,6 @@ export default function ConfigPage() {
             })}
           </div>
 
-          {/* Botón único debajo de las 3 cards */}
           <Button
             color="primary"
             isLoading={enviandoPlantillas}

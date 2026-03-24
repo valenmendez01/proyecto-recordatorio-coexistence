@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { Trash2, Plus, Pencil, Search } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { useDisclosure } from "@heroui/modal";
@@ -17,6 +17,7 @@ import { Spinner } from "@heroui/spinner";
 import useSWR from 'swr';
 
 import { Paciente, PacienteInsert, PacienteUpdate } from "@/types/types";
+import { usePacientesStore } from "./store/pacientesStore";
 
 const supabase = createClient();
 
@@ -42,14 +43,9 @@ const fetcher = async ([url, filter, page, rowsPerPage]: [string, string, number
 
 export default function TablaClientes() {
   // UI States
-  const [loading, setLoading] = useState(true);
-  const [filterValue, setFilterValue] = useState("");
-  const [page, setPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [totalCount, setTotalCount] = useState(0); // Para manejar el total real de la DB
-
-  // Datos
-  const [pacientes, setPacientes] = useState<Paciente[]>([]); 
+  const { filterValue, page, rowsPerPage, setFilterValue, setPage, setRowsPerPage } = usePacientesStore();
+  
+  // Datos 
   const { data, error, isLoading, mutate } = useSWR(
     ['pacientes', filterValue, page, rowsPerPage], 
     fetcher,
@@ -70,45 +66,14 @@ export default function TablaClientes() {
 
   const PHONE_REGEX = /^549\d{10}$/;
 
+  const pacientes = data?.data ?? [];
+  const totalCount = data?.count ?? 0;
+
   const columns = [
     { name: "PACIENTE", uid: "paciente" },
     { name: "TELÉFONO", uid: "telefono" },
     { name: "ACCIONES", uid: "acciones" },
   ];
-
-  // FUNCIÓN DE CARGA ASÍNCRONA
-  const cargarPacientes = useCallback(async () => {
-    setLoading(true);
-    
-    // Cálculo de rangos para la consulta (.range es inclusivo)
-    const from = (page - 1) * rowsPerPage;
-    const to = from + rowsPerPage - 1;
-
-    let query = supabase
-      .from("pacientes")
-      .select("*", { count: "exact" }) // Solicitamos el conteo total para la paginación
-      .order("apellido", { ascending: true })
-      .range(from, to);
-
-    // Filtrado en el servidor
-    if (filterValue) {
-      query = query.or(`nombre.ilike.%${filterValue}%,apellido.ilike.%${filterValue}%,dni.ilike.%${filterValue}%`);
-    }
-
-    const { data, error, count } = await query;
-
-    if (error) {
-      alert("Error cargando pacientes: " + error.message);
-    } else {
-      setPacientes(data || []);
-      setTotalCount(count || 0);
-    }
-    setLoading(false);
-  }, [page, rowsPerPage, filterValue]);
-
-  useEffect(() => {
-    cargarPacientes();
-  }, [cargarPacientes]);
 
   // Cálculo de páginas totales basado en la respuesta del servidor
   const pages = Math.ceil(totalCount / rowsPerPage) || 1;
@@ -139,7 +104,7 @@ export default function TablaClientes() {
     if (error) {
       alert("Error al eliminar: " + error.message);
     } else {
-      cargarPacientes(); // Recargamos para ajustar la paginación
+      mutate();
       onDeleteClose();
     }
   };
@@ -207,10 +172,7 @@ export default function TablaClientes() {
         placeholder="Buscar por nombre o DNI..."
         startContent={<Search size={18} />}
         value={filterValue}
-        onValueChange={(val) => { 
-          setFilterValue(val); 
-          setPage(1); // Importante: volver a pág 1 al buscar
-        }}
+        onValueChange={setFilterValue}
         onClear={() => setFilterValue("")}
       />
       <div className="flex gap-3 items-center">
@@ -218,10 +180,7 @@ export default function TablaClientes() {
           className="w-24"
           labelPlacement="outside"
           selectedKeys={[String(rowsPerPage)]}
-          onChange={(e) => {
-            setRowsPerPage(Number(e.target.value));
-            setPage(1); // Resetear a pág 1 al cambiar densidad
-          }}
+          onChange={(e) => setRowsPerPage(Number(e.target.value))}
           size="sm"
           aria-label="Filas por página"
         >
@@ -234,7 +193,7 @@ export default function TablaClientes() {
         </Button>
       </div>
     </div>
-  ), [filterValue, rowsPerPage]);
+  ), [filterValue, rowsPerPage, setFilterValue, setRowsPerPage]);
 
   const bottomContent = useMemo(() => (
     <div className="py-2 px-2 flex justify-center">
@@ -247,7 +206,7 @@ export default function TablaClientes() {
         onChange={setPage}
       />
     </div>
-  ), [page, pages]);
+  ), [page, pages, setPage]);
 
   return (
     <Card className="p-6">
@@ -265,7 +224,7 @@ export default function TablaClientes() {
           )}
         </TableHeader>
         <TableBody 
-          emptyContent={loading ? <Spinner /> : "No se encontraron pacientes"} 
+          emptyContent={isLoading ? <Spinner /> : "No se encontraron pacientes"}
           items={pacientes} // Usamos el estado directamente, ya viene filtrado y paginado
         >
           {(item) => (
