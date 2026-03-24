@@ -10,54 +10,10 @@ import { sendTestMessage, completeOnboarding, enviarPlantillasARevision } from "
 import { createClient } from "@/utils/supabase/client";
 import { addToast, ToastProvider } from "@heroui/toast";
 import { Alert } from "@heroui/alert";
-import { cn } from "@heroui/theme";
 import { Skeleton } from "@heroui/skeleton";
 import { Divider } from "@heroui/divider";
 
 const supabase = createClient();
-
-const CustomAlert = forwardRef<HTMLDivElement, React.ComponentProps<typeof Alert> & { title?: string }>(
-  ({ title, children, color = "default", className, classNames = {}, ...props }, ref) => {
-    const colorClass = useMemo(() => {
-      switch (color) {
-        case "primary":   return "before:bg-primary";
-        case "secondary": return "before:bg-secondary";
-        case "success":   return "before:bg-success";
-        case "warning":   return "before:bg-warning";
-        case "danger":    return "before:bg-danger";
-        default:          return "before:bg-default-300";
-      }
-    }, [color]);
-
-    return (
-      <Alert
-        ref={ref}
-        classNames={{
-          ...classNames,
-          base: cn(
-            "bg-default-50 dark:bg-background shadow-sm",
-            "border-1 border-default-200 dark:border-default-100",
-            "relative before:content-[''] before:absolute before:z-10",
-            "before:left-0 before:top-[-1px] before:bottom-[-1px] before:w-1",
-            "rounded-l-none border-l-0",
-            colorClass,
-            classNames.base,
-            className,
-          ),
-          mainWrapper: cn("pt-1", classNames.mainWrapper),
-          iconWrapper: cn("dark:bg-transparent", classNames.iconWrapper),
-        }}
-        color={color}
-        title={title}
-        variant="faded"
-        {...props}
-      >
-        {children}
-      </Alert>
-    );
-  },
-);
-CustomAlert.displayName = "CustomAlert";
 
 const PREDEFINED_TEMPLATES = [
   {
@@ -377,7 +333,7 @@ export default function ConfigPage() {
       </Card>
 
       {whatsappState.status === "connected" && (
-        <CustomAlert
+        <Alert
           color="primary"
           title="¿Querés desconectar tu cuenta?"
         >
@@ -389,7 +345,7 @@ export default function ConfigPage() {
             y tocá <span className="font-semibold">{"Desconectar cuenta"}</span>.
             Tu estado se actualizará automáticamente.
           </p>
-        </CustomAlert>
+        </Alert>
       )}
 
       {/* 

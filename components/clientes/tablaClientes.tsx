@@ -14,10 +14,31 @@ import { Pagination } from "@heroui/pagination";
 import { Select, SelectItem } from "@heroui/select";
 import { User } from "@heroui/user";
 import { Spinner } from "@heroui/spinner";
+import useSWR from 'swr';
 
 import { Paciente, PacienteInsert, PacienteUpdate } from "@/types/types";
 
 const supabase = createClient();
+
+// Fuera del componente
+const fetcher = async ([url, filter, page, rowsPerPage]: [string, string, number, number]) => {
+  const from = (page - 1) * rowsPerPage;
+  const to = from + rowsPerPage - 1;
+
+  let query = supabase
+    .from("pacientes")
+    .select("*", { count: "exact" })
+    .order("apellido", { ascending: true })
+    .range(from, to);
+
+  if (filter) {
+    query = query.or(`nombre.ilike.%${filter}%,apellido.ilike.%${filter}%,dni.ilike.%${filter}%`);
+  }
+
+  const { data, error, count } = await query;
+  if (error) throw error;
+  return { data, count };
+};
 
 export default function TablaClientes() {
   // UI States
@@ -29,6 +50,11 @@ export default function TablaClientes() {
 
   // Datos
   const [pacientes, setPacientes] = useState<Paciente[]>([]); 
+  const { data, error, isLoading, mutate } = useSWR(
+    ['pacientes', filterValue, page, rowsPerPage], 
+    fetcher,
+    { keepPreviousData: true } // Mantiene la tabla visible mientras carga la siguiente página
+  );
   const [nuevoPaciente, setNuevoPaciente] = useState<PacienteInsert>({
     dni: "",
     nombre: "",
@@ -42,7 +68,7 @@ export default function TablaClientes() {
   const { isOpen: isDeleteOpen, onOpen: onDeleteOpen, onClose: onDeleteClose } = useDisclosure();
   const [pacienteAEliminar, setPacienteAEliminar] = useState<Paciente | null>(null);
 
-  const PHONE_REGEX = /^\+549\d{10}$/;
+  const PHONE_REGEX = /^549\d{10}$/;
 
   const columns = [
     { name: "PACIENTE", uid: "paciente" },
@@ -99,10 +125,8 @@ export default function TablaClientes() {
 
     const { error } = await supabase.from("pacientes").insert([nuevoPaciente]);
 
-    if (error) {
-      alert("Error al agregar: " + error.message);
-    } else {
-      cargarPacientes(); // Recargamos para ver los cambios y actualizar el count
+    if (!error) {
+      mutate(); // Notifica a SWR que los datos cambiaron
       setModalNuevo(false);
       setNuevoPaciente({ dni: "", nombre: "", apellido: "", telefono: "" });
     }
@@ -137,10 +161,8 @@ export default function TablaClientes() {
       })
       .eq("id", editingPaciente.id);
 
-    if (error) {
-      alert("Error al actualizar: " + error.message);
-    } else {
-      cargarPacientes(); // Refrescamos datos del servidor
+    if (!error) {
+      mutate();
       onEditClose();
     }
   };
@@ -266,11 +288,11 @@ export default function TablaClientes() {
             <Input label="DNI" value={nuevoPaciente.dni} onChange={e => setNuevoPaciente({...nuevoPaciente, dni: e.target.value})} />
             <Input 
               label="Teléfono" 
-              placeholder="+5492991234567" 
+              placeholder="5492994562051"
               value={nuevoPaciente.telefono}
-              description="Formato requerido: +549 seguido de 10 dígitos"
+              description="Formato: 54 + 9 + característica sin 0 + número"
               isInvalid={nuevoPaciente.telefono !== "" && !PHONE_REGEX.test(nuevoPaciente.telefono)}
-              errorMessage="Formato inválido"
+              errorMessage="Ingrese 13 dígitos comenzando con 549"
               onChange={e => setNuevoPaciente({...nuevoPaciente, telefono: e.target.value})} 
             />
           </ModalBody>
@@ -292,7 +314,14 @@ export default function TablaClientes() {
                   <Input label="Apellido" value={editingPaciente.apellido || ""} onChange={e => setEditingPaciente({...editingPaciente, apellido: e.target.value})} />
                 </div>
                 <Input label="DNI" value={editingPaciente.dni || ""} onChange={e => setEditingPaciente({...editingPaciente, dni: e.target.value})} />
-                <Input label="Teléfono" value={editingPaciente.telefono || ""} onChange={e => setEditingPaciente({...editingPaciente, telefono: e.target.value})} />
+                <Input 
+                  label="Teléfono" 
+                  value={editingPaciente.telefono || ""} 
+                  placeholder="5492994562051"
+                  isInvalid={editingPaciente.telefono !== "" && !PHONE_REGEX.test(editingPaciente.telefono || "")}
+                  errorMessage="Formato inválido (ej: 5492994562051)"
+                  onChange={e => setEditingPaciente({...editingPaciente, telefono: e.target.value})} 
+                />
               </>
             )}
           </ModalBody>
