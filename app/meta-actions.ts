@@ -290,8 +290,16 @@ export async function enviarPlantillasARevision() {
 
   // Enviar las 3 en paralelo
   const resultados = await Promise.allSettled(
-    PREDEFINED_TEMPLATES.map((t) => registrarPlantillaMeta(t.header, t.body))
+    PREDEFINED_TEMPLATES.map((t) => {
+      console.log(`[plantillas] Enviando: ${t.header}`);
+      return registrarPlantillaMeta(t.header, t.body);
+    })
   );
+
+  // Loguear TODOS los resultados, no solo los errores
+  resultados.forEach((r, i) => {
+    console.log(`[plantillas] Resultado ${PREDEFINED_TEMPLATES[i].header}:`, JSON.stringify(r));
+  });
 
   const errores = resultados
     .filter((r): r is PromiseRejectedResult => r.status === "rejected")
