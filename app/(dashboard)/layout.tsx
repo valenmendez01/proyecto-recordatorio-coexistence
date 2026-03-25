@@ -8,7 +8,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <FacebookSDK />
       <div className="relative flex flex-col h-dvh overflow-hidden">
       <Navbar />
-      <main className="container mx-auto max-w-7xl pt-2 md:pt-6 px-4 md:px-6 flex-grow flex flex-col overflow-y-auto pb-6">
+      <main className="container mx-auto max-w-7xl pt-4 md:pt-6 px-4 md:px-6 flex-grow flex flex-col overflow-y-auto pb-6">
         {children}
       </main>
     </div>
