@@ -33,7 +33,18 @@ export const Navbar = () => {
   if (pathname === "/login") return null;
 
   return (
-    <HeroUINavbar isMenuOpen={isMenuOpen} onMenuOpenChange={setIsMenuOpen} maxWidth="xl" position="sticky">
+    <HeroUINavbar 
+      classNames={{
+        base: "z-[100]",
+        wrapper: "z-[100]",
+        menu: "z-[101]",
+        menuItem: "z-[101]",
+      }} 
+      isMenuOpen={isMenuOpen}
+      maxWidth="xl"
+      position="sticky"
+      onMenuOpenChange={setIsMenuOpen}
+    >
       {/* Contenido Superior (Brand y Desktop Nav) */}
       <NavbarContent className="basis-1/5 sm:basis-full" justify="start">
         <NavbarBrand as="li" className="gap-3 max-w-fit">
