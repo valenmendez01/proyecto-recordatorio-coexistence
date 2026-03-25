@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   Navbar as HeroUINavbar,
   NavbarContent,
@@ -22,14 +22,18 @@ import { Button } from "@heroui/button";
 import { logout } from "@/app/auth-actions";
 
 export const Navbar = () => {
-
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const pathname = usePathname();
+
+  useEffect(() => {
+    setIsMenuOpen(false);
+  }, [pathname]);
 
   // SI LA RUTA ES /LOGIN, NO RENDERIZAMOS NADA
   if (pathname === "/login") return null;
 
   return (
-    <HeroUINavbar maxWidth="xl" position="sticky">
+    <HeroUINavbar isMenuOpen={isMenuOpen} onMenuOpenChange={setIsMenuOpen} maxWidth="xl" position="sticky">
       {/* Contenido Superior (Brand y Desktop Nav) */}
       <NavbarContent className="basis-1/5 sm:basis-full" justify="start">
         <NavbarBrand as="li" className="gap-3 max-w-fit">
@@ -102,6 +106,7 @@ export const Navbar = () => {
           {siteConfig.navMenuItems.map((item, index) => (
             <NavbarMenuItem key={`${item.label}-${index}`}>
               <NextLink
+                onClick={() => setIsMenuOpen(false)}
                 className={clsx(
                   linkStyles({ color: "foreground" }),
                   "text-lg w-full",

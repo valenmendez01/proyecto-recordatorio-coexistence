@@ -19,12 +19,13 @@ import { getLocalTimeZone, parseDate } from "@internationalized/date";
 import { Divider } from "@heroui/divider";
 import { Select, SelectItem } from "@heroui/select";
 import { Spinner } from "@heroui/spinner";
-
-import { useCalendarStore } from "../store/calendar-store";
-
 import clsx from "clsx";
 
+import { useIsMobile } from "../hooks/use-mobile";
+import { useCalendarStore } from "../store/calendar-store";
+
 export function CalendarControls() {
+  const isMobile = useIsMobile();
   const {
     goToToday,
     goToDate,
@@ -54,10 +55,12 @@ export function CalendarControls() {
   const hoursOptions = Array.from({ length: 24 }, (_, i) => i);
 
   return (
-    <div className="px-3 md:px-6 py-4 border-b border-divider">
-      <div className="flex items-center gap-2 md:gap-3 flex-wrap">
+    <div className="px-2 md:px-6 py-4 border-b border-divider">
+      <div className="flex items-center gap-1 md:gap-3 flex-nowrap">
         <Button
           className="h-8 px-3 shrink-0 font-semibold"
+          radius="full"
+          size={isMobile ? "sm" : "md"}
           variant="bordered"
           onPress={goToToday}
         >
@@ -73,6 +76,8 @@ export function CalendarControls() {
           <PopoverTrigger>
             <Button
               className="h-8 px-3 gap-2 justify-start text-left font-normal shrink-0 hover:bg-default-100"
+              radius="full"
+              size={isMobile ? "sm" : "md"}
               variant="bordered"
             >
               <Calendar1Icon className="size-4 text-default-500" />
@@ -102,19 +107,19 @@ export function CalendarControls() {
         </Popover>
 
         {/* Spinner de carga */}
-        {isLoading && (
+        {isLoading && !isMobile && (
           <div className="flex items-center animate-in fade-in zoom-in duration-300">
             <Spinner color="primary" size="md" variant="dots" />
           </div>
         )}
 
-        <div className="ml-auto" />
+        <div className="hidden md:block ml-auto" />
 
         {/* Configuración de Vista (Horas) */}
         <Popover placement="bottom-end">
           <PopoverTrigger>
-            <Button className="h-8 px-3 gap-2" variant="bordered">
-              <Settings className="size-4" />
+            <Button className="h-8 px-3 gap-2" isIconOnly={isMobile} radius="full" size={isMobile ? "lg" : "md"} variant="bordered">
+              <Settings size={16} />
               <span className="hidden sm:inline text-xs">Vista</span>
             </Button>
           </PopoverTrigger>
@@ -183,9 +188,12 @@ export function CalendarControls() {
                 "h-8 px-3 gap-2",
                 hasActiveFilters && "bg-default-100 border-primary",
               )}
+              isIconOnly={isMobile} 
+              radius="full" 
+              size={isMobile ? "lg" : "md"}
               variant="bordered"
             >
-              <SlidersHorizontal className="size-4" />
+              <SlidersHorizontal size={16} />
               <span className="hidden sm:inline text-xs">Filtrar</span>
               {hasActiveFilters && (
                 <span className="size-1.5 rounded-full bg-primary" />

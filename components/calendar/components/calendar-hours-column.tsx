@@ -23,7 +23,7 @@ export function CalendarHoursColumn({
   return (
     <div
       ref={scrollRef}
-      className="w-[80px] md:w-[104px] border-r border-divider shrink-0 overflow-y-auto relative"
+      className="w-[80px] md:w-[104px] border-r border-divider shrink-0 overflow-y-auto sticky left-0 z-30 bg-content1"
       onScroll={onScroll}
     >
       {visibleHours.map((hour) => (

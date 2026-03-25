@@ -263,7 +263,7 @@ export default function ConfigPage() {
   }
 
   return (
-    <div className="flex flex-col gap-8 w-full max-w-5xl mx-auto p-4 md:p-8">
+    <div className="flex flex-col gap-8 w-full max-w-7xl mx-auto p-4">
       <div className="flex flex-col gap-2">
         <h1 className="text-3xl font-bold tracking-tight">Configuración del Sistema</h1>
         <p className="text-default-500">Gestión oficial del Registro Insertado de Meta.</p>
@@ -321,7 +321,7 @@ export default function ConfigPage() {
             <span className="font-semibold">
               Configuración → Cuenta → Plataforma empresarial
             </span>{" "}
-            y tocá <span className="font-semibold">{"Desconectar cuenta"}</span>. Tu estado se
+            y tocá <span className="font-semibold">Desconectar cuenta</span>.<br/> Tu estado se
             actualizará automáticamente.
           </p>
         </Alert>
@@ -374,6 +374,15 @@ export default function ConfigPage() {
                   ? "warning"
                   : "default";
 
+              const statusLabel =
+                enDB?.status === "APPROVED"
+                  ? "APROBADA"
+                  : enDB?.status === "REJECTED"
+                  ? "RECHAZADA"
+                  : enDB?.status === "PENDING"
+                  ? "PENDIENTE"
+                  : enDB?.status;
+
               const previewBody = temp.body
                 .replace(/{nombre}/g, "Juan")
                 .replace(/{apellido}/g, "Pérez")
@@ -387,7 +396,7 @@ export default function ConfigPage() {
                     <p className="text-sm font-semibold text-default-600">{temp.title}</p>
                     {enDB && (
                       <Chip className="flex justify-end" size="sm" color={statusColor} variant="flat">
-                        {enDB.status}
+                        {statusLabel}
                       </Chip>
                     )}
                   </CardHeader>
@@ -401,7 +410,7 @@ export default function ConfigPage() {
                         border-t-[8px] border-t-white dark:border-t-[#202c33]
                         border-l-[8px] border-l-transparent"
                       />
-                      <div className="max-w-[97%] bg-white dark:bg-[#202c33] rounded-lg rounded-tl-none px-3 py-2 shadow-sm">
+                      <div className="max-w-[85%] bg-white dark:bg-[#202c33] rounded-lg rounded-tl-none px-3 py-2 shadow-sm">
                         <p className="text-sm font-bold text-[#111b21] dark:text-white mb-1">
                           {temp.header}
                         </p>

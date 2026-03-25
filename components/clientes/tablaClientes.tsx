@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { Trash2, Plus, Pencil, Search } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { useDisclosure } from "@heroui/modal";
@@ -66,13 +66,15 @@ export default function TablaClientes() {
 
   const PHONE_REGEX = /^549\d{10}$/;
 
+  const [isMobile, setIsMobile] = useState(false);
+
   const pacientes = data?.data ?? [];
   const totalCount = data?.count ?? 0;
 
   const columns = [
     { name: "PACIENTE", uid: "paciente" },
-    { name: "TELÉFONO", uid: "telefono" },
-    { name: "ACCIONES", uid: "acciones" },
+    { name: <span><span className="md:hidden">TEL</span><span className="hidden md:inline">TELÉFONO</span></span>, uid: "telefono" },
+    { name: <span><span className="md:hidden">ACC</span><span className="hidden md:inline">ACCIONES</span></span>, uid: "acciones" },
   ];
 
   // Cálculo de páginas totales basado en la respuesta del servidor
@@ -137,24 +139,32 @@ export default function TablaClientes() {
       case "paciente":
         return (
           <User
-            avatarProps={{ showFallback: true, color: "primary" }}
+            avatarProps={{ showFallback: true, color: "primary", className: "hidden md:flex w-10 h-10" }}
+            classNames={{
+              name: "text-sm md:text-base",
+              description: "text-xs md:text-sm"
+            }}
             description={`DNI: ${paciente.dni}`}
             name={`${paciente.nombre} ${paciente.apellido}`}
           />
         );
       case "telefono":
-        return <p className="text-sm">{paciente.telefono}</p>;
+        return (
+          <p className="text-xs md:text-sm break-all">
+            {paciente.telefono}
+          </p>
+        );
       case "acciones":
         return (
-          <div className="flex items-center gap-2 justify-center">
+          <div className="flex flex-col md:flex-row items-center gap-2 justify-center">
             <Tooltip content="Editar">
-              <Button isIconOnly variant="light" onPress={() => { setEditingPaciente({ ...paciente }); onEditOpen(); }}>
-                <Pencil size={20} className="text-default-400" />
+              <Button isIconOnly variant="light" className="w-5 h-5 md:w-10 md:h-10" onPress={() => { setEditingPaciente({ ...paciente }); onEditOpen(); }}>
+                <Pencil className="w-4 h-4 md:w-5 md:h-5 text-default-400" />
               </Button>
             </Tooltip>
             <Tooltip color="danger" content="Eliminar">
-              <Button isIconOnly variant="light" color="danger" onPress={() => { setPacienteAEliminar(paciente); onDeleteOpen(); }}>
-                <Trash2 size={20} />
+              <Button isIconOnly variant="light" color="danger" className="w-5 h-5 md:w-10 md:h-10" onPress={() => { setPacienteAEliminar(paciente); onDeleteOpen(); }}>
+                <Trash2 className="w-4 h-4 md:w-5 md:h-5" />
               </Button>
             </Tooltip>
           </div>
@@ -165,7 +175,7 @@ export default function TablaClientes() {
   }, []);
 
   const topContent = useMemo(() => (
-    <div className="flex justify-between items-center gap-4">
+    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 w-full">
       <Input
         isClearable
         className="w-full sm:max-w-[44%]"
@@ -175,7 +185,7 @@ export default function TablaClientes() {
         onValueChange={setFilterValue}
         onClear={() => setFilterValue("")}
       />
-      <div className="flex gap-3 items-center">
+      <div className="flex gap-3 items-center w-full sm:w-auto justify-between sm:justify-end">
         <Select
           className="w-24"
           labelPlacement="outside"
@@ -188,9 +198,9 @@ export default function TablaClientes() {
           <SelectItem key="10">10</SelectItem>
           <SelectItem key="15">15</SelectItem>
         </Select>
-        <Button color="primary" startContent={<Plus size={18} />} onPress={() => setModalNuevo(true)}>
-          Nuevo Paciente
-        </Button>
+          <Button color="primary" startContent={<Plus size={16} />} onPress={() => setModalNuevo(true)} className="text-xs px-2 md:text-sm md:px-4">
+            <span className="tracking-wider">Nuevo</span>
+          </Button>
       </div>
     </div>
   ), [filterValue, rowsPerPage, setFilterValue, setRowsPerPage]);
@@ -208,8 +218,15 @@ export default function TablaClientes() {
     </div>
   ), [page, pages, setPage]);
 
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
   return (
-    <Card className="p-6">
+    <Card className="p-4 md:p-6">
       <Table
         aria-label="Tabla de gestión de pacientes"
         bottomContent={bottomContent}
@@ -236,18 +253,18 @@ export default function TablaClientes() {
       </Table>
 
       {/* MODALES (Se mantienen igual para edición/creación) */}
-      <Modal isOpen={modalNuevo} onOpenChange={setModalNuevo}>
-        <ModalContent>
-          <ModalHeader>Registrar Nuevo Paciente</ModalHeader>
+      <Modal isOpen={modalNuevo} onOpenChange={setModalNuevo} placement="center" size={isMobile ? "xs" : "lg"}>
+        <ModalContent className="md:p-2">
+          <ModalHeader className="md:text-xl">Registrar Nuevo Paciente</ModalHeader>
           <ModalBody className="gap-4">
-            <div className="flex gap-4">
+            <div className="flex flex-col sm:flex-row gap-4 w-full">
               <Input label="Nombre" value={nuevoPaciente.nombre} onChange={e => setNuevoPaciente({...nuevoPaciente, nombre: e.target.value})} />
               <Input label="Apellido" value={nuevoPaciente.apellido} onChange={e => setNuevoPaciente({...nuevoPaciente, apellido: e.target.value})} />
             </div>
             <Input label="DNI" value={nuevoPaciente.dni} onChange={e => setNuevoPaciente({...nuevoPaciente, dni: e.target.value})} />
             <Input 
               label="Teléfono" 
-              placeholder="5492994562051"
+              placeholder="5492991234567"
               value={nuevoPaciente.telefono}
               description="Formato: 54 + 9 + característica sin 0 + número"
               isInvalid={nuevoPaciente.telefono !== "" && !PHONE_REGEX.test(nuevoPaciente.telefono)}
@@ -262,13 +279,13 @@ export default function TablaClientes() {
         </ModalContent>
       </Modal>
 
-      <Modal isOpen={isEditOpen} onOpenChange={onEditClose}>
-        <ModalContent>
-          <ModalHeader>Editar Paciente</ModalHeader>
+      <Modal isOpen={isEditOpen} onOpenChange={onEditClose} placement="center" size={isMobile ? "xs" : "lg"}>
+        <ModalContent className="md:p-2">
+          <ModalHeader className="md:text-xl">Editar Paciente</ModalHeader>
           <ModalBody className="gap-4">
             {editingPaciente && (
               <>
-                <div className="flex gap-4">
+                <div className="flex flex-col sm:flex-row gap-4 w-full">
                   <Input label="Nombre" value={editingPaciente.nombre || ""} onChange={e => setEditingPaciente({...editingPaciente, nombre: e.target.value})} />
                   <Input label="Apellido" value={editingPaciente.apellido || ""} onChange={e => setEditingPaciente({...editingPaciente, apellido: e.target.value})} />
                 </div>
@@ -276,9 +293,9 @@ export default function TablaClientes() {
                 <Input 
                   label="Teléfono" 
                   value={editingPaciente.telefono || ""} 
-                  placeholder="5492994562051"
+                  placeholder="5492991234567"
                   isInvalid={editingPaciente.telefono !== "" && !PHONE_REGEX.test(editingPaciente.telefono || "")}
-                  errorMessage="Formato inválido (ej: 5492994562051)"
+                  errorMessage="Formato inválido (ej: 5492991234567)"
                   onChange={e => setEditingPaciente({...editingPaciente, telefono: e.target.value})} 
                 />
               </>
@@ -291,9 +308,9 @@ export default function TablaClientes() {
         </ModalContent>
       </Modal>
 
-      <Modal isOpen={isDeleteOpen} onOpenChange={onDeleteClose}>
-        <ModalContent>
-          <ModalHeader>Confirmar eliminación</ModalHeader>
+      <Modal isOpen={isDeleteOpen} onOpenChange={onDeleteClose} placement="center" size={isMobile ? "xs" : "lg"}>
+        <ModalContent className="md:p-2">
+          <ModalHeader className="md:text-xl">Confirmar eliminación</ModalHeader>
           <ModalBody>
             <p>¿Estás seguro de eliminar a <strong>{pacienteAEliminar?.nombre} {pacienteAEliminar?.apellido}</strong>?</p>
           </ModalBody>

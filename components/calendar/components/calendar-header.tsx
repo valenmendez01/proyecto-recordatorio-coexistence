@@ -7,10 +7,12 @@ import { Button } from "@heroui/button";
 import { Plus } from "lucide-react";
 
 import { useCalendarStore } from "../store/calendar-store";
+import { useIsMobile } from "../hooks/use-mobile";
 
 import { CreateEventDialog } from "./create-event-dialog";
 
 export function CalendarHeader() {
+  const isMobile = useIsMobile();
   const { currentWeekStart, events } = useCalendarStore(); // Obtener eventos del store
 
   // Filtrar eventos de HOY
@@ -62,11 +64,14 @@ export function CalendarHeader() {
             <div className="flex items-center gap-1 md:gap-1.5 lg:gap-2 shrink-0">
               <Button
                 color="primary"
+                isIconOnly={isMobile}
+                radius="full"
+                size={isMobile ? "sm" : "md"}
                 variant="solid"
                 onPress={() => setCreateDialogOpen(true)}
               >
                 <Plus className="size-4" />
-                <span className="hidden lg:inline">Agregar turno</span>
+                <span className="hidden lg:inline">Agendar turno</span>
               </Button>
             </div>
           </div>
