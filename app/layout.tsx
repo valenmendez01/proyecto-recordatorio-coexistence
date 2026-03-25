@@ -19,13 +19,6 @@ export const metadata: Metadata = {
   },
 };
 
-export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "white" },
-    { media: "(prefers-color-scheme: dark)", color: "black" },
-  ],
-};
-
 export default function RootLayout({
   children,
 }: {
@@ -33,7 +26,7 @@ export default function RootLayout({
 }) {
   return (
     // Cambié lang a "es" ya que tu app está en español
-    <html suppressHydrationWarning lang="es"> 
+    <html suppressHydrationWarning className="bg-background" lang="es"> 
       <head />
       <body
         className={clsx(
