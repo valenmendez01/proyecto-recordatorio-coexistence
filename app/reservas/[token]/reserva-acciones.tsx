@@ -2,7 +2,7 @@
 
 import { Button } from "@heroui/button";
 import { CheckCircle, XCircle, Clock } from "lucide-react";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 
 import { confirmarReserva, cancelarReserva } from "./actions";
 
@@ -15,6 +15,7 @@ interface Props {
 
 export default function ReservaAcciones({ token, estado, expirado, yaProcesado }: Props) {
   const [isPending, startTransition] = useTransition();
+  const [loadingAction, setLoadingAction] = useState<"confirmar" | "cancelar" | null>(null);
 
   if (yaProcesado) {
     const esConfirmado = estado === "confirmado";
@@ -22,7 +23,7 @@ export default function ReservaAcciones({ token, estado, expirado, yaProcesado }
     return (
       <div className={`flex items-center gap-3 rounded-xl p-4 ${esConfirmado ? "bg-success-50 text-success-700" : "bg-danger-50 text-danger-700"}`}>
         {esConfirmado
-          ? <><CheckCircle className="size-5" /> Tu asistencia ya fue confirmada. ¡Te esperamos!</>
+          ? <><CheckCircle className="size-5" /> Tu asistencia ya fue confirmada. ¡Te espero!</>
           : <><XCircle className="size-5" /> Este turno fue cancelado.</>
         }
       </div>
@@ -47,20 +48,34 @@ export default function ReservaAcciones({ token, estado, expirado, yaProcesado }
       <Button
         className="w-full"
         color="success"
-        isLoading={isPending}
+        isDisabled={isPending}
+        isLoading={isPending && loadingAction === "confirmar"}
         startContent={<CheckCircle className="size-4" />}
         variant="flat"
-        onPress={() => startTransition(() => confirmarReserva(token))}
+        onPress={() => {
+          setLoadingAction("confirmar");
+          startTransition(async () => {
+            await confirmarReserva(token);
+            setLoadingAction(null);
+          });
+        }}
       >
         Confirmar Asistencia
       </Button>
       <Button
         className="w-full"
         color="danger"
-        isLoading={isPending}
+        isDisabled={isPending}
+        isLoading={isPending && loadingAction === "cancelar"}
         startContent={<XCircle className="size-4" />}
         variant="flat"
-        onPress={() => startTransition(() => cancelarReserva(token))}
+        onPress={() => {
+          setLoadingAction("cancelar");
+          startTransition(async () => {
+            await cancelarReserva(token);
+            setLoadingAction(null);
+          });
+        }}
       >
         Cancelar Turno
       </Button>
