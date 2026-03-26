@@ -264,11 +264,11 @@ export default function TablaClientes() {
               <Input label="Nombre" value={nuevoPaciente.nombre} onChange={e => setNuevoPaciente({...nuevoPaciente, nombre: e.target.value})} />
               <Input label="Apellido" value={nuevoPaciente.apellido} onChange={e => setNuevoPaciente({...nuevoPaciente, apellido: e.target.value})} />
             </div>
-            <Input label="DNI" type="tel" value={nuevoPaciente.dni} onChange={e => setNuevoPaciente({...nuevoPaciente, dni: e.target.value})} />
+            <Input label="DNI" inputMode="numeric" value={nuevoPaciente.dni} onChange={e => setNuevoPaciente({...nuevoPaciente, dni: e.target.value})} />
             <Input 
               label="Teléfono"
               placeholder="5492991234567"
-              type="tel"
+              inputMode="numeric"
               value={nuevoPaciente.telefono}
               description="Formato: 54 + 9 + característica sin 0 + número"
               isInvalid={nuevoPaciente.telefono !== "" && !PHONE_REGEX.test(nuevoPaciente.telefono)}
@@ -293,10 +293,10 @@ export default function TablaClientes() {
                   <Input label="Nombre" value={editingPaciente.nombre || ""} onChange={e => setEditingPaciente({...editingPaciente, nombre: e.target.value})} />
                   <Input label="Apellido" value={editingPaciente.apellido || ""} onChange={e => setEditingPaciente({...editingPaciente, apellido: e.target.value})} />
                 </div>
-                <Input label="DNI" type="tel" value={editingPaciente.dni || ""} onChange={e => setEditingPaciente({...editingPaciente, dni: e.target.value})} />
+                <Input label="DNI" inputMode="numeric" value={editingPaciente.dni || ""} onChange={e => setEditingPaciente({...editingPaciente, dni: e.target.value})} />
                 <Input 
                   label="Teléfono"
-                  type="tel"
+                  inputMode="numeric"
                   value={editingPaciente.telefono || ""} 
                   placeholder="5492991234567"
                   isInvalid={editingPaciente.telefono !== "" && !PHONE_REGEX.test(editingPaciente.telefono || "")}
