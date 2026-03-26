@@ -45,16 +45,24 @@ export async function GET(request: Request) {
       return NextResponse.json({ message: "No hay turnos en esta ventana de tiempo" });
     }
 
-    const promesasEnvio = turnos.map((turno) => 
-      enviarNotificacionWhatsApp(turno.id, 'recordatorio')
-    );
+    const promesasEnvio = turnos.map(async (turno) => {
+      const resultado = await enviarNotificacionWhatsApp(turno.id, 'recordatorio', supabase);
 
-    await Promise.allSettled(promesasEnvio);
+      if (resultado.error) {
+        console.error(`Error en recordatorio para turno ${turno.id}:`, resultado.error);
+      }
+      
+      return resultado;
+    });
+
+    const resultados = await Promise.all(promesasEnvio);
+
+    console.log(`[Cron] Procesados ${turnos.length} recordatorios.`);
 
     return NextResponse.json({ 
       success: true, 
       procesados: turnos.length,
-      ventana: `${horaInicioVentana} a ${horaFinVentana}`
+      detalles: resultados 
     });
 
   } catch (error: any) {

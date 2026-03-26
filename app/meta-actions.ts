@@ -405,8 +405,8 @@ export async function registrarPlantillaMeta(header: string, body: string) {
   return { success: true };
 }
 
-export async function enviarNotificacionWhatsApp(reservaId: string, tipo: 'reserva' | 'actualizacion' | 'recordatorio') {
-  const supabase = await createClient();
+export async function enviarNotificacionWhatsApp(reservaId: string, tipo: 'reserva' | 'actualizacion' | 'recordatorio', supabaseClient?: any) {
+  const supabase = supabaseClient || await createClient();
   
   // 1. Obtenemos el perfil directamente (al ser único, tomamos el primero que encuentre)
   const { data: perfil, error: perfilError } = await supabase
