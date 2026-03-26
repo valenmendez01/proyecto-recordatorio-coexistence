@@ -25,8 +25,8 @@ export async function GET(request: Request) {
     // 2. Calculamos la ventana para mañana basándonos en hora Argentina
     const mañanaArg = addDays(ahoraArg, 1);
     const fechaMañana = format(mañanaArg, 'yyyy-MM-dd');
-    const horaInicioVentana = format(mañanaArg, 'HH:mm');
-    const horaFinVentana = format(addMinutes(mañanaArg, 30), 'HH:mm');
+    const horaInicioVentana = format(mañanaArg, 'HH:mm') + ":00";
+    const horaFinVentana = format(addMinutes(mañanaArg, 30), 'HH:mm') + ":00";
 
     console.log(`Buscando turnos para ${fechaMañana} entre ${horaInicioVentana} y ${horaFinVentana}`);
 
@@ -38,6 +38,8 @@ export async function GET(request: Request) {
       .gte('hora_inicio', horaInicioVentana)
       .lt('hora_inicio', horaFinVentana);
 
+    console.log("Turnos encontrados:", turnos?.length);
+    if (error) console.error("Error en consulta cron:", error);
     if (error) throw error;
     if (!turnos || turnos.length === 0) {
       return NextResponse.json({ message: "No hay turnos en esta ventana de tiempo" });
