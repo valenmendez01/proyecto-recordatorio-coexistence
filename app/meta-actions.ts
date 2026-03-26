@@ -408,26 +408,35 @@ export async function registrarPlantillaMeta(header: string, body: string) {
 export async function enviarNotificacionWhatsApp(reservaId: string, tipo: 'reserva' | 'actualizacion' | 'recordatorio') {
   const supabase = await createClient();
   
-  // 1. Obtener datos de la reserva, el paciente y el perfil del profesional
+  // 1. Obtenemos el perfil directamente (al ser único, tomamos el primero que encuentre)
+  const { data: perfil, error: perfilError } = await supabase
+    .from("perfiles")
+    .select("*")
+    .limit(1)
+    .single();
+
+  if (perfilError || !perfil) {
+    return { error: "No se encontró la configuración de perfil en la base de datos." };
+  }
+
+  if (!perfil.whatsapp_access_token || !perfil.whatsapp_phone_number_id) {
+    return { error: "WhatsApp no está configurado (faltan tokens)." };
+  }
+
+  // 2. Obtenemos los datos de la reserva y el paciente
   const { data: reserva, error: reservaError } = await supabase
     .from("reservas")
-    .select(`
-      *,
-      paciente:pacientes(*),
-      perfil:perfiles(*)
-    `)
+    .select(`*, paciente:pacientes(*)`)
     .eq("id", reservaId)
     .single();
 
-  if (reservaError || !reserva) return { error: "No se encontró la reserva" };
-
-  const { paciente, perfil } = reserva as any;
-
-  if (!perfil.whatsapp_access_token || !perfil.whatsapp_phone_number_id) {
-    return { error: "WhatsApp no configurado para este profesional" };
+  if (reservaError || !reserva) {
+    return { error: "No se encontró la reserva o el paciente." };
   }
 
-  // 2. Buscar el nombre_meta REAL en la tabla de plantillas (dinámico)
+  const paciente = reserva.paciente as any;
+
+  // 3. Mapeo para buscar la plantilla dinámica en la tabla 'plantillas'
   const tipoAHeader: Record<string, string> = {
     reserva: "Reserva de turno",
     actualizacion: "Actualización de turno",
@@ -470,7 +479,7 @@ export async function enviarNotificacionWhatsApp(reservaId: string, tipo: 'reser
   // Si es recordatorio, agregamos el link como {{5}}
   if (tipo === 'recordatorio') {
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL;
-    
+
     components[0].parameters.push({
       type: "text", 
       text: `${baseUrl}/reservas/${reserva.token}`

@@ -142,14 +142,15 @@ export function CreateEventDialog({ open, onOpenChange }: CreateEventDialogProps
     if (insertError) {
       setMensajeError("Error al crear la reserva: " + insertError.message);
       setIsLoading(false);
-      
+
       return;
     }
 
     // Si llegamos aquí, la reserva se creó correctamente
     if (nuevaReserva) {
-      // Disparar envío de WhatsApp (no bloqueante)
-      enviarNotificacionWhatsApp(nuevaReserva.id, 'reserva'); 
+      const res = await enviarNotificacionWhatsApp(nuevaReserva.id, 'reserva');
+      
+      if (res.error) console.error("Error enviando WhatsApp:", res.error);
       
       await fetchEvents();
       if (date) goToDate(date);
