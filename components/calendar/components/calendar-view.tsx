@@ -63,13 +63,21 @@ export function CalendarView() {
   useEffect(() => {
     const channel = supabase
       .channel('cambios-reservas-calendario')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'reservas' }, () => {
-        // Al detectar un cambio en la base de datos, revalidamos la caché de SWR
-        mutate();
-      })
-      .subscribe();
+      .on(
+        'postgres_changes', 
+        { event: '*', schema: 'public', table: 'reservas' }, 
+        (payload) => {
+          console.log("Cambio detectado:", payload);
+          mutate(); // Revalida la semana actual
+        }
+      )
+      .subscribe((status) => {
+        console.log("Estado suscripción Realtime:", status);
+      });
 
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [mutate]);
 
   // 3. Filtrado local de eventos

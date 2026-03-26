@@ -51,6 +51,7 @@ export function EventSheet({ event, open, onOpenChange }: EventSheetProps) {
   const refreshCache = () => {
     const startDate = format(currentWeekStart, "yyyy-MM-dd");
     const endDate = format(endOfWeek(currentWeekStart, { weekStartsOn: 1 }), "yyyy-MM-dd");
+
     mutate(['reservas-semana', startDate, endDate]);
   };
 
@@ -134,7 +135,10 @@ export function EventSheet({ event, open, onOpenChange }: EventSheetProps) {
       .eq("id", event.id);
 
     if (!error) {
-      refreshCache();
+      const startDate = format(currentWeekStart, "yyyy-MM-dd");
+      const endDate = format(endOfWeek(currentWeekStart, { weekStartsOn: 1 }), "yyyy-MM-dd");
+
+      await mutate(['reservas-semana', startDate, endDate], undefined, { revalidate: true });
       onOpenChange(false);
     } else {
       alert("Error al actualizar: " + error.message);
@@ -154,9 +158,11 @@ export function EventSheet({ event, open, onOpenChange }: EventSheetProps) {
       .eq("id", event.id);
 
     if (!error) {
-      refreshCache();
-      setIsDeleteModalOpen(false); // Cerramos el modal
-      onOpenChange(false); // Cerramos el Drawer principal
+      const startDate = format(currentWeekStart, "yyyy-MM-dd");
+      const endDate = format(endOfWeek(currentWeekStart, { weekStartsOn: 1 }), "yyyy-MM-dd");
+      
+      await mutate(['reservas-semana', startDate, endDate], undefined, { revalidate: true });
+      onOpenChange(false);
     } else {
       // Si quieres, luego podemos cambiar este alert por un Toast/Sonner
       alert("Error al eliminar el turno: " + error.message); 
