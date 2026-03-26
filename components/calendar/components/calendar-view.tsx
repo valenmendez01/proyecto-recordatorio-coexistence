@@ -56,7 +56,6 @@ export function CalendarView() {
         description: r.notas,
       }));
     },
-    { keepPreviousData: true } // Muestra la semana anterior mientras carga la nueva
   );
 
   // 2. Suscripción a Realtime
@@ -64,16 +63,34 @@ export function CalendarView() {
     const channel = supabase
       .channel('cambios-reservas-calendario')
       .on(
-        'postgres_changes', 
-        { event: '*', schema: 'public', table: 'reservas' }, 
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'reservas' },
         (payload) => {
           console.log("Cambio detectado:", payload);
-          mutate(); // Revalida la semana actual
+
+          if (payload.eventType === 'UPDATE') {
+            const updated = payload.new;
+
+            // Actualiza el cache local con el dato del payload, sin refetch
+            mutate(
+              (currentEvents: CalendarEvent[] | undefined) => {
+                if (!currentEvents) return currentEvents;
+                
+                return currentEvents.map((e) =>
+                  e.id === updated.id
+                    ? { ...e, status: updated.estado, description: updated.notas }
+                    : e
+                );
+              },
+              { revalidate: false } // No refetch, el payload ya tiene la verdad
+            );
+          } else {
+            // Para INSERT o DELETE, sí revalidar
+            mutate(undefined, { revalidate: true });
+          }
         }
       )
-      .subscribe((status) => {
-        console.log("Estado suscripción Realtime:", status);
-      });
+      .subscribe();
 
     return () => {
       supabase.removeChannel(channel);

@@ -27,7 +27,7 @@ export function Providers({ children, themeProps }: ProvidersProps) {
   return (
     <SWRConfig value={{
       revalidateOnFocus: false,
-      dedupingInterval: 5000
+      dedupingInterval: 500
     }}>
       <HeroUIProvider navigate={router.push}>
         <NextThemesProvider {...themeProps}>{children}</NextThemesProvider>

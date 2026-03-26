@@ -138,7 +138,7 @@ export function EventSheet({ event, open, onOpenChange }: EventSheetProps) {
       const startDate = format(currentWeekStart, "yyyy-MM-dd");
       const endDate = format(endOfWeek(currentWeekStart, { weekStartsOn: 1 }), "yyyy-MM-dd");
 
-      await mutate(['reservas-semana', startDate, endDate], undefined, { revalidate: true });
+      await mutate(['reservas-semana', startDate, endDate]);
       onOpenChange(false);
     } else {
       alert("Error al actualizar: " + error.message);
@@ -160,8 +160,8 @@ export function EventSheet({ event, open, onOpenChange }: EventSheetProps) {
     if (!error) {
       const startDate = format(currentWeekStart, "yyyy-MM-dd");
       const endDate = format(endOfWeek(currentWeekStart, { weekStartsOn: 1 }), "yyyy-MM-dd");
-      
-      await mutate(['reservas-semana', startDate, endDate], undefined, { revalidate: true });
+
+      await mutate(['reservas-semana', startDate, endDate]);
       onOpenChange(false);
     } else {
       // Si quieres, luego podemos cambiar este alert por un Toast/Sonner
