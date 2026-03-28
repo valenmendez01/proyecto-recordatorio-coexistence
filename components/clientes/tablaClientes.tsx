@@ -14,6 +14,7 @@ import { Pagination } from "@heroui/pagination";
 import { Select, SelectItem } from "@heroui/select";
 import { User } from "@heroui/user";
 import { Spinner } from "@heroui/spinner";
+import { addToast } from "@heroui/toast";
 import useSWR from 'swr';
 
 import { Paciente, PacienteInsert, PacienteUpdate } from "@/types/types";
@@ -82,11 +83,13 @@ export default function TablaClientes() {
 
   const agregarPaciente = async () => {
     if (!nuevoPaciente.dni || !nuevoPaciente.nombre || !nuevoPaciente.apellido || !nuevoPaciente.telefono) {
-      alert("Todos los campos son obligatorios");
+      addToast({ title: "Campos incompletos", description: "Todos los campos son obligatorios", color: "danger" });
+
       return;
     }
     if (!PHONE_REGEX.test(nuevoPaciente.telefono)) {
-      alert("El formato del teléfono es inválido.");
+      addToast({ title: "Teléfono inválido", description: "El formato debe ser 549...", color: "danger" });
+      
       return;
     }
 
@@ -104,7 +107,7 @@ export default function TablaClientes() {
     const { error } = await supabase.from("pacientes").delete().eq("id", pacienteAEliminar.id);
 
     if (error) {
-      alert("Error al eliminar: " + error.message);
+      addToast({ title: "Error", description: error.message, color: "danger" });
     } else {
       mutate();
       onDeleteClose();
@@ -114,7 +117,7 @@ export default function TablaClientes() {
   const guardarEdicion = async () => {
     if (!editingPaciente || !editingPaciente.id) return;
     if (!PHONE_REGEX.test(editingPaciente.telefono || "")) {
-      alert("El formato del teléfono es inválido.");
+      addToast({ title: "Error en edición", description: "El formato del teléfono es inválido", color: "danger" });
       return;
     }
 

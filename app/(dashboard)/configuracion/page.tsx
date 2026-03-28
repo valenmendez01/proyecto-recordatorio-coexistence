@@ -1,11 +1,10 @@
-// app/(dashboard)/configuracion/page.tsx
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@heroui/button";
 import { Card, CardBody, CardHeader } from "@heroui/card";
 import { Chip } from "@heroui/chip";
-import { CheckCircle2, XCircle, Zap } from "lucide-react";
+import { AlertCircle, CheckCircle2, XCircle, Zap } from "lucide-react";
 import { completeOnboarding, enviarPlantillasARevision } from "@/app/meta-actions";
 import { createClient } from "@/utils/supabase/client";
 import { addToast } from "@heroui/toast";
@@ -13,6 +12,10 @@ import { Alert } from "@heroui/alert";
 import { Skeleton } from "@heroui/skeleton";
 import { Divider } from "@heroui/divider";
 import useSWR from "swr";
+import { Table, TableBody, TableCell, TableColumn, TableHeader, TableRow } from "@heroui/table";
+import { Pagination } from "@heroui/pagination";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
 
 const supabase = createClient();
 
@@ -83,6 +86,18 @@ export default function ConfigPage() {
     { revalidateOnFocus: false }
   );
 
+  const { data: logsData, isLoading: logsLoading } = useSWR(
+    "notificaciones-log",
+    async () => {
+      const { data } = await supabase
+        .from("notificaciones_log")
+        .select("*")
+        .eq("estado", "failed") // 👈 Solo trae los que fallaron
+        .order("created_at", { ascending: false });
+      return data || [];
+    }
+  );
+
   const { data: whatsappStatus, isLoading: whatsappLoading } = useSWR(
     "whatsapp-status",
     async () => {
@@ -141,7 +156,14 @@ export default function ConfigPage() {
   // PASO 2 y 3: Abrir Popup y Procesar Devolución de Llamada
   const handleConnect = () => {
     // @ts-ignore
-    if (!window.FB) return alert("SDK no cargado");
+    if (!window.FB) {
+      addToast({ 
+        title: "Error de conexión", 
+        description: "El SDK de Facebook no se ha cargado correctamente. Recarga la página.", 
+        color: "danger" 
+      });
+      return;
+    }
 
     const fbLoginCallback = (response: any) => {
       if (response.authResponse) {
@@ -262,6 +284,16 @@ export default function ConfigPage() {
     });
   }
 
+  const [page, setPage] = useState(1);
+  const rowsPerPage = 10;
+  const pages = Math.ceil((logsData?.length || 0) / rowsPerPage);
+
+  const items = useMemo(() => {
+    const start = (page - 1) * rowsPerPage;
+
+    return (logsData || []).slice(start, start + rowsPerPage);
+  }, [page, logsData]);
+
   return (
     <div className="flex flex-col gap-8 w-full max-w-7xl mx-auto p-4">
       <div className="flex flex-col gap-2">
@@ -353,89 +385,155 @@ export default function ConfigPage() {
 
       {/* PLANTILLAS (Solo si está conectado) */}
       {whatsappStatus === "connected" && (
-        <div className="flex flex-col gap-4 mt-4">
-          <div className="flex flex-col gap-1 px-1">
-            <h3 className="text-xl font-bold">Plantillas</h3>
-            <p className="text-sm text-default-500">
-              Se usan para enviar mensajes automáticos y preaprobados a tus clientes fuera de la
-              conversación activa.
-            </p>
-          </div>
+        <>
+          <div className="flex flex-col gap-4 mt-4">
+            <div className="flex flex-col gap-1 px-1">
+              <h3 className="text-xl font-bold">Plantillas</h3>
+              <p className="text-sm text-default-500">
+                Se usan para enviar mensajes automáticos y preaprobados a tus clientes fuera de la
+                conversación activa.
+              </p>
+            </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {PREDEFINED_TEMPLATES.map((temp) => {
-              const enDB = plantillas.find((p) => p.header_text === temp.header);
-              const statusColor =
-                enDB?.status === "APPROVED"
-                  ? "success"
-                  : enDB?.status === "REJECTED"
-                  ? "danger"
-                  : enDB?.status === "PENDING"
-                  ? "warning"
-                  : "default";
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {PREDEFINED_TEMPLATES.map((temp) => {
+                const enDB = plantillas.find((p) => p.header_text === temp.header);
+                const statusColor =
+                  enDB?.status === "APPROVED"
+                    ? "success"
+                    : enDB?.status === "REJECTED"
+                    ? "danger"
+                    : enDB?.status === "PENDING"
+                    ? "warning"
+                    : "default";
 
-              const statusLabel =
-                enDB?.status === "APPROVED"
-                  ? "APROBADA"
-                  : enDB?.status === "REJECTED"
-                  ? "RECHAZADA"
-                  : enDB?.status === "PENDING"
-                  ? "PENDIENTE"
-                  : enDB?.status;
+                const statusLabel =
+                  enDB?.status === "APPROVED"
+                    ? "APROBADA"
+                    : enDB?.status === "REJECTED"
+                    ? "RECHAZADA"
+                    : enDB?.status === "PENDING"
+                    ? "PENDIENTE"
+                    : enDB?.status;
 
-              const previewBody = temp.body
-                .replace(/{nombre}/g, "Juan")
-                .replace(/{apellido}/g, "Pérez")
-                .replace(/{fecha}/g, "Lunes 16 de abril")
-                .replace(/{hora}/g, "09:00 hs")
-                .replace(/{link}/g, "https://ejemplo.com/confirmar");
+                const previewBody = temp.body
+                  .replace(/{nombre}/g, "Juan")
+                  .replace(/{apellido}/g, "Pérez")
+                  .replace(/{fecha}/g, "Lunes 16 de abril")
+                  .replace(/{hora}/g, "09:00 hs")
+                  .replace(/{link}/g, "https://ejemplo.com/confirmar");
 
-              return (
-                <Card key={temp.id} className="bg-content1">
-                  <CardHeader className="flex items-center justify-between p-4">
-                    <p className="text-sm font-semibold text-default-600">{temp.title}</p>
-                    {enDB && (
-                      <Chip className="flex justify-end" size="sm" color={statusColor} variant="flat">
-                        {statusLabel}
-                      </Chip>
-                    )}
-                  </CardHeader>
+                return (
+                  <Card key={temp.id} className="bg-content1">
+                    <CardHeader className="flex items-center justify-between p-4">
+                      <p className="text-sm font-semibold text-default-600">{temp.title}</p>
+                      {enDB && (
+                        <Chip className="flex justify-end" size="sm" color={statusColor} variant="flat">
+                          {statusLabel}
+                        </Chip>
+                      )}
+                    </CardHeader>
 
-                  <Divider />
+                    <Divider />
 
-                  <CardBody className="bg-[#efeae2] dark:bg-[#0d1418] p-4">
-                    <div className="relative">
-                      <div
-                        className="absolute -left-2 top-0 w-0 h-0 
-                        border-t-[8px] border-t-white dark:border-t-[#202c33]
-                        border-l-[8px] border-l-transparent"
-                      />
-                      <div className="max-w-[85%] bg-white dark:bg-[#202c33] rounded-lg rounded-tl-none px-3 py-2 shadow-sm">
-                        <p className="text-sm font-bold text-[#111b21] dark:text-white mb-1">
-                          {temp.header}
-                        </p>
-                        <p className="text-xs text-[#111b21] dark:text-[#e9edef] whitespace-pre-wrap leading-relaxed">
-                          {renderWhatsAppText(previewBody)}
-                        </p>
-                        <p className="text-[10px] text-[#667781] text-right mt-1">1:52</p>
+                    <CardBody className="bg-[#efeae2] dark:bg-[#0d1418] p-4">
+                      <div className="relative">
+                        <div
+                          className="absolute -left-2 top-0 w-0 h-0 
+                          border-t-[8px] border-t-white dark:border-t-[#202c33]
+                          border-l-[8px] border-l-transparent"
+                        />
+                        <div className="max-w-[85%] bg-white dark:bg-[#202c33] rounded-lg rounded-tl-none px-3 py-2 shadow-sm">
+                          <p className="text-sm font-bold text-[#111b21] dark:text-white mb-1">
+                            {temp.header}
+                          </p>
+                          <p className="text-xs text-[#111b21] dark:text-[#e9edef] whitespace-pre-wrap leading-relaxed">
+                            {renderWhatsAppText(previewBody)}
+                          </p>
+                          <p className="text-[10px] text-[#667781] text-right mt-1">1:52</p>
+                        </div>
                       </div>
-                    </div>
-                  </CardBody>
-                </Card>
-              );
-            })}
-          </div>
+                    </CardBody>
+                  </Card>
+                );
+              })}
+            </div>
 
-          <Button
-            color="primary"
-            isLoading={enviandoPlantillas}
-            isDisabled={plantillasEnviadas}
-            onPress={handleEnviarPlantillas}
-            className="self-start"
-          >
-            {plantillasEnviadas ? "Plantillas enviadas a revisión" : "Enviar plantillas a revisión"}
-          </Button>
-        </div>
+            <Button
+              color="primary"
+              isLoading={enviandoPlantillas}
+              isDisabled={plantillasEnviadas}
+              onPress={handleEnviarPlantillas}
+              className="self-start"
+            >
+              {plantillasEnviadas ? "Plantillas enviadas a revisión" : "Enviar plantillas a revisión"}
+            </Button>
+          </div>
+          {/* SECCIÓN: HISTORIAL DE ENVÍO (Solo Errores) */}
+          <div className="flex flex-col gap-4 mt-8">
+            <div className="flex flex-col gap-1 px-1">
+              <h3 className="text-xl font-bold">Registro de errores de envío</h3>
+              <p className="text-sm text-default-500">
+                Visualización simple de las notificaciones que fallaron al enviarse.
+              </p>
+            </div>
+
+            <Card className="bg-content1">
+              <CardBody className="p-0"> {/* P-0 para que la tabla llegue a los bordes */}
+                <Table 
+                  aria-label="Tabla de errores de envío"
+                  removeWrapper // Da un aspecto más integrado dentro del Card
+                  bottomContent={
+                    pages > 1 && (
+                      <div className="flex w-full justify-center py-4">
+                        <Pagination
+                          isCompact
+                          showControls
+                          color="primary"
+                          page={page}
+                          total={pages}
+                          onChange={setPage}
+                        />
+                      </div>
+                    )
+                  }
+                >
+                  <TableHeader>
+                    <TableColumn>FECHA</TableColumn>
+                    <TableColumn>PACIENTE</TableColumn>
+                    <TableColumn>TIPO</TableColumn>
+                    <TableColumn>ERROR REPORTADO</TableColumn>
+                  </TableHeader>
+                  <TableBody 
+                    emptyContent={"No se registran errores de envío."}
+                    isLoading={logsLoading}
+                    loadingContent={<Skeleton className="w-full h-20" />}
+                  >
+                    {items.map((log: any) => (
+                      <TableRow key={log.id}>
+                        <TableCell className="text-xs text-default-500">
+                          {format(new Date(log.created_at), "dd/MM HH:mm", { locale: es })}
+                        </TableCell>
+                        <TableCell className="font-medium text-sm">{log.paciente_nombre}</TableCell>
+                        <TableCell>
+                          <Chip size="sm" variant="flat" className="capitalize text-tiny">
+                            {log.tipo}
+                          </Chip>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2 text-danger text-xs italic">
+                            <AlertCircle size={14} className="shrink-0" />
+                            <span>{log.mensaje_error || "Error de entrega desconocido"}</span>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardBody>
+            </Card>
+          </div>
+        </>
       )}
     </div>
   );

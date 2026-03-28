@@ -48,6 +48,7 @@ export function EventSheet({ event, open, onOpenChange }: EventSheetProps) {
   const [statusUpdating, setStatusUpdating] = useState<"confirmado" | "cancelado" | "reservado" | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [sendingReminder, setSendingReminder] = useState(false);
 
   const refreshCache = () => {
     const startDate = format(currentWeekStart, "yyyy-MM-dd");
@@ -79,13 +80,13 @@ export function EventSheet({ event, open, onOpenChange }: EventSheetProps) {
 
   const handleSaveChanges = async () => {
     if (!event || !editDate || !editHora || !editHoraFin) {
-      alert("Por favor completa todos los campos.");
+      addToast({ title: "Faltan datos", description: "Por favor completa todos los campos", color: "warning" });
 
       return;
     }
     
     if (editHoraFin.compare(editHora) <= 0) {
-      alert("La hora de fin debe ser posterior a la hora de inicio.");
+      addToast({ title: "Horario inválido", description: "La hora de fin debe ser posterior a la de inicio", color: "danger" });
       
       return;
     }
@@ -175,6 +176,28 @@ export function EventSheet({ event, open, onOpenChange }: EventSheetProps) {
     setIsDeleting(false);
   };
 
+  const handleManualReminder = async () => {
+    if (!event) return;
+    setSendingReminder(true);
+    
+    const result = await enviarNotificacionWhatsApp(event.id, 'recordatorio');
+    
+    if (result.success) {
+      addToast({ 
+        title: "¡Enviado!", 
+        description: "El recordatorio de WhatsApp se envió correctamente.", 
+        color: "success" 
+      });
+    } else {
+      addToast({ 
+        title: "Error de envío", 
+        description: result.error, 
+        color: "danger" 
+      });
+    }
+    setSendingReminder(false);
+  };
+
   if (!event) return null;
 
   return (
@@ -189,7 +212,7 @@ export function EventSheet({ event, open, onOpenChange }: EventSheetProps) {
 
               <Divider orientation="horizontal" />
 
-              <DrawerBody className="p-6 gap-6">
+              <DrawerBody className="p-6 gap-3">
                 {isEditing ? (
                   <div className="flex flex-col gap-4">
                     <DatePicker
@@ -220,7 +243,7 @@ export function EventSheet({ event, open, onOpenChange }: EventSheetProps) {
                     </div>
                   </div>
                 ) : (
-                  <div className="flex flex-col gap-6">
+                  <div className="flex flex-col gap-5 md:gap-6">
                     <div className="flex items-start gap-4">
                       <User className="size-5 mt-1 text-primary" />
                       <div>
@@ -265,7 +288,7 @@ export function EventSheet({ event, open, onOpenChange }: EventSheetProps) {
 
                     <Divider orientation="horizontal" />
                     <div className="flex flex-col gap-5">
-                      <p className="text-lg font-medium">Modificar estado manual a la reserva</p>
+                      <p className="text-lg font-medium">Modificar estado manualmente</p>
                       <div className="mt-auto grid grid-cols-2 gap-2">
                         {event.status === "confirmado" && (
                           <>
@@ -331,6 +354,23 @@ export function EventSheet({ event, open, onOpenChange }: EventSheetProps) {
                         )}
                       </div>
                     </div>
+                    {event.status === "reservado" && (
+                      <>
+                        <Divider orientation="horizontal" />
+                        <div className="flex flex-col gap-3">
+                          <p className="text-lg font-medium">Enviar recordatorio manual</p>
+                          <Button 
+                            color="primary" 
+                            variant="solid" 
+                            fullWidth
+                            isLoading={sendingReminder}
+                            onPress={handleManualReminder}
+                          >
+                            Enviar WhatsApp
+                          </Button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
               </DrawerBody>

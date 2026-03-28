@@ -161,6 +161,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ status: "ok" }, { status: 200 });
   }
 
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
   // 2. Parsear payload
   let payload: WhatsAppWebhookPayload;
 
@@ -227,11 +232,6 @@ export async function POST(req: NextRequest) {
           continue;
         }
         
-        const supabase = createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!, 
-          process.env.SUPABASE_SERVICE_ROLE_KEY!
-        );
-        
         await supabase
           .from("plantillas")
           .update({ status: event }) 
@@ -250,6 +250,11 @@ export async function POST(req: NextRequest) {
       // TODO (Paso 5+): actualizar campo `estado_envio` en tabla `reservas`
       for (const statusUpdate of value.statuses ?? []) {
         const { id: messageId, status, timestamp, recipient_id, errors } = statusUpdate;
+
+        await supabase
+          .from("notificaciones_log")
+          .update({ estado: status })
+          .eq("meta_message_id", messageId);
 
         switch (status) {
           case "sent":
