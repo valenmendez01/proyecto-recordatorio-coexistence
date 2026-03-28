@@ -60,6 +60,10 @@ export function CalendarView() {
         description: r.notas,
       }));
     },
+    {
+      revalidateIfStale: true,
+      revalidateOnMount: true,
+    }
   );
 
   // 2. Suscripción a Realtime
@@ -87,18 +91,15 @@ export function CalendarView() {
               { revalidate: false }
             );
           } else {
-            console.log("=== INSERT/DELETE — startDate en closure ===", startDate);
-            console.log("=== INSERT/DELETE — endDate en closure ===", endDate);
-            try {
+            console.log("=== INSERT/DELETE — forzando refetch ===");
+            setTimeout(() => {
               globalMutate(
                 (key: unknown) => Array.isArray(key) && key[0] === 'reservas-semana',
                 undefined,
                 { revalidate: true }
               );
               console.log("=== globalMutate ejecutado OK ===");
-            } catch (err) {
-              console.error("=== ERROR en globalMutate ===", err);
-            }
+            }, 300);
           }
         }
       )

@@ -161,30 +161,8 @@ export function CreateEventDialog({ open, onOpenChange }: CreateEventDialogProps
         });
 
       if (date) goToDate(date);
-
-      const newWeekStart = startOfWeek(date, { weekStartsOn: 1 });
-      const startDate = format(newWeekStart, "yyyy-MM-dd");
-      const endDate = format(endOfWeek(newWeekStart, { weekStartsOn: 1 }), "yyyy-MM-dd");
-
-      // Actualización optimista: agregamos el nuevo evento al cache directamente
-      const nuevoEvento = {
-        id: nuevaReserva.id,
-        title: `${clienteEncontrado.nombre} ${clienteEncontrado.apellido}`,
-        startTime: horaInicio.toString().slice(0, 5),
-        endTime: horaFin.toString().slice(0, 5),
-        date: fechaStr,
-        participants: [`${clienteEncontrado.nombre} ${clienteEncontrado.apellido}`],
-        status: "reservado" as const,
-        description: notas || "Sin notas",
-      };
-
-      mutate(
-        ['reservas-semana', startDate, endDate],
-        (current: any[] | undefined) => [...(current || []), nuevoEvento],
-        { revalidate: false } // No refetch, ya tenemos el dato completo
-      );
-
       onOpenChange(false);
+      // Sin mutate — el Realtime se encarga
     }
 
     setIsLoading(false);
