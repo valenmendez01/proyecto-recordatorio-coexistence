@@ -16,6 +16,29 @@ import { useSWRConfig } from 'swr';
 
 const supabase = createClient();
 
+const fetchReservas = async (startDate: string, endDate: string): Promise<CalendarEvent[]> => {
+  console.log("=== FETCHER ejecutándose ===", startDate, endDate);
+  const { data, error } = await supabase
+    .from("reservas")
+    .select(`id, reserva_fecha, hora_inicio, hora_fin, estado, notas, paciente:pacientes(nombre, apellido)`)
+    .gte("reserva_fecha", startDate)
+    .lte("reserva_fecha", endDate)
+    .in("estado", ["reservado", "confirmado", "cancelado"]);
+
+  if (error) throw error;
+
+  return (data || []).map((r: any) => ({
+    id: r.id,
+    title: `${r.paciente.nombre} ${r.paciente.apellido}`,
+    startTime: r.hora_inicio.slice(0, 5),
+    endTime: r.hora_fin.slice(0, 5),
+    date: r.reserva_fecha,
+    participants: [`${r.paciente.nombre} ${r.paciente.apellido}`],
+    status: r.estado,
+    description: r.notas,
+  }));
+};
+
 export function CalendarView() {
   const { 
     goToNextWeek, goToPreviousWeek, getWeekDays, 
@@ -38,32 +61,8 @@ export function CalendarView() {
 
   const { data: events, isLoading, mutate } = useSWR<CalendarEvent[]>(
     ['reservas-semana', startDate, endDate],
-    async () => {
-      console.log("=== FETCHER ejecutándose ===", startDate, endDate);
-      const { data, error } = await supabase
-        .from("reservas")
-        .select(`id, reserva_fecha, hora_inicio, hora_fin, estado, notas, paciente:pacientes(nombre, apellido)`)
-        .gte("reserva_fecha", startDate)
-        .lte("reserva_fecha", endDate)
-        .in("estado", ["reservado", "confirmado", "cancelado"]);
-
-      if (error) throw error;
-
-      return (data || []).map((r: any) => ({
-        id: r.id,
-        title: `${r.paciente.nombre} ${r.paciente.apellido}`,
-        startTime: r.hora_inicio.slice(0, 5),
-        endTime: r.hora_fin.slice(0, 5),
-        date: r.reserva_fecha,
-        participants: [`${r.paciente.nombre} ${r.paciente.apellido}`],
-        status: r.estado,
-        description: r.notas,
-      }));
-    },
-    {
-      revalidateIfStale: true,
-      revalidateOnMount: true,
-    }
+    ([_key, start, end]: [string, string, string]) => fetchReservas(start, end),
+    { revalidateIfStale: true, revalidateOnMount: true }
   );
 
   // 2. Suscripción a Realtime
@@ -91,24 +90,12 @@ export function CalendarView() {
               { revalidate: false }
             );
           } else {
-            console.log("=== INSERT/DELETE — forzando refetch ===");
-            setTimeout(() => {
-              console.log("=== CACHE KEYS antes del mutate ===", 
-                (globalMutate as any)._cache ? 
-                [...(globalMutate as any)._cache.keys()] : 
-                "no accesible"
-              );
-              globalMutate(
-                (key: unknown) => {
-                  const matches = Array.isArray(key) && key[0] === 'reservas-semana';
-                  console.log("=== evaluando key ===", key, "matches:", matches);
-                  return matches;
-                },
-                undefined,
-                { revalidate: true }
-              );
-              console.log("=== globalMutate ejecutado OK ===");
-            }, 300);
+            console.log("=== INSERT/DELETE — refetch directo ===");
+            setTimeout(async () => {
+              const nuevosEventos = await fetchReservas(startDate, endDate);
+              console.log("=== datos frescos obtenidos ===", nuevosEventos.length);
+              mutate(nuevosEventos, { revalidate: false });
+            }, 200);
           }
         }
       )
