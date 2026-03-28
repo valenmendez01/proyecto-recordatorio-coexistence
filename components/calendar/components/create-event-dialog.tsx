@@ -152,8 +152,8 @@ export function CreateEventDialog({ open, onOpenChange }: CreateEventDialogProps
     // Si llegamos aquí, la reserva se creó correctamente
     if (nuevaReserva) {
       addToast({ 
-        title: "¡Cita agendada!", 
-        description: `El turno para ${clienteEncontrado.nombre} ${clienteEncontrado.apellido} se creó con éxito.`, 
+        title: "Cita agendada", 
+        description: "El turno se creó correctamente.", 
         color: "success" 
       });
       
@@ -175,7 +175,7 @@ export function CreateEventDialog({ open, onOpenChange }: CreateEventDialogProps
   };
 
   return (
-    <Modal isOpen={open} placement="center" scrollBehavior="inside" size={isMobile ? "xs" : "lg"} onOpenChange={onOpenChange}>
+    <Modal classNames={{ backdrop: "z-[250]", wrapper: "z-[300]" }} isOpen={open} placement="center" scrollBehavior="inside" size={isMobile ? "xs" : "lg"} onOpenChange={onOpenChange}>
       <ModalContent>
         {(onClose) => (
           <>

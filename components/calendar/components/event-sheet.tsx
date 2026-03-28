@@ -119,11 +119,17 @@ export function EventSheet({ event, open, onOpenChange }: EventSheetProps) {
       if (huboCambioHorario) {
         await enviarNotificacionWhatsApp(event.id, 'actualizacion');
       }
+
+      addToast({ 
+        title: "Turno actualizado", 
+        description: "Los cambios se guardaron correctamente.", 
+        color: "success" 
+      });
       
       refreshCache();
       setIsEditing(false);
     } else {
-      addToast({ title: "Error al guardar", description: updateError.message, color: "danger" });
+      addToast({ title: "Error al actualizar", description: updateError.message, color: "danger" });
     }
 
     setUpdating(false);
@@ -143,10 +149,16 @@ export function EventSheet({ event, open, onOpenChange }: EventSheetProps) {
       const startDate = format(currentWeekStart, "yyyy-MM-dd");
       const endDate = format(endOfWeek(currentWeekStart, { weekStartsOn: 1 }), "yyyy-MM-dd");
 
+      addToast({ 
+        title: "Estado actualizado", 
+        description: `El turno ahora está ${status}.`, 
+        color: "success" 
+      });
+
       await mutate(['reservas-semana', startDate, endDate]);
       onOpenChange(false);
     } else {
-      addToast({ title: "Error al actualizar", description: error.message, color: "danger" });
+      addToast({ title: "Error", description: "No se pudo cambiar el estado.", color: "danger" });
     }
     
     setStatusUpdating(null); // Limpiamos el estado de carga
@@ -166,11 +178,17 @@ export function EventSheet({ event, open, onOpenChange }: EventSheetProps) {
       const startDate = format(currentWeekStart, "yyyy-MM-dd");
       const endDate = format(endOfWeek(currentWeekStart, { weekStartsOn: 1 }), "yyyy-MM-dd");
 
+      addToast({ 
+        title: "Turno eliminado", 
+        description: "La reserva ha sido quitada del calendario.", 
+        color: "success" 
+      });
+
       await mutate(['reservas-semana', startDate, endDate]);
       setIsDeleteModalOpen(false); // ← cierra el modal de confirmación
       onOpenChange(false);         // ← cierra el drawer
     } else {
-      addToast({ title: "Error al eliminar el turno", description: error.message, color: "danger" }); 
+      addToast({ title: "Error al eliminar", description: error.message, color: "danger" }); 
     }
     
     setIsDeleting(false);
@@ -202,7 +220,7 @@ export function EventSheet({ event, open, onOpenChange }: EventSheetProps) {
 
   return (
     <>
-      <Drawer isOpen={open} onOpenChange={onOpenChange} placement="right" size="sm" classNames={{ wrapper: "z-[200]" }}>
+      <Drawer isOpen={open} onOpenChange={onOpenChange} placement="right" size="sm" classNames={{ backdrop: "z-[150]", wrapper: "z-[200]", base: "z-[200]" }}>
         <DrawerContent>
           {(onClose) => (
             <>
@@ -379,7 +397,7 @@ export function EventSheet({ event, open, onOpenChange }: EventSheetProps) {
         </DrawerContent>
       </Drawer>
 
-      <Modal classNames={{ wrapper: "z-[300]" }} isOpen={isDeleteModalOpen} placement="center" size="sm" onOpenChange={setIsDeleteModalOpen}>
+      <Modal classNames={{ backdrop: "z-[250]", wrapper: "z-[300]" }} isOpen={isDeleteModalOpen} placement="center" size="sm" onOpenChange={setIsDeleteModalOpen}>
         <ModalContent>
           {(onClose) => (
             <>
