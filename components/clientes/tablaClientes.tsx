@@ -2,7 +2,6 @@
 
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { Trash2, Plus, Pencil, Search } from "lucide-react";
-import { createClient } from "@/utils/supabase/client";
 import { useDisclosure } from "@heroui/modal";
 import { Tooltip } from "@heroui/tooltip";
 import { Table, TableHeader, TableBody, TableColumn, TableRow, TableCell } from "@heroui/table";
@@ -17,8 +16,15 @@ import { Spinner } from "@heroui/spinner";
 import { addToast } from "@heroui/toast";
 import useSWR from 'swr';
 
-import { Paciente, PacienteInsert, PacienteUpdate } from "@/types/types";
 import { usePacientesStore } from "./store/pacientesStore";
+
+import { createClient } from "@/utils/supabase/client";
+import { 
+  crearPacienteAction, 
+  actualizarPacienteAction, 
+  eliminarPacienteAction 
+} from "@/app/actions/pacientes-actions";
+import { Paciente, PacienteInsert, PacienteUpdate } from "@/types/types";
 
 const supabase = createClient();
 
@@ -93,28 +99,29 @@ export default function TablaClientes() {
       return;
     }
 
-    const { error } = await supabase.from("pacientes").insert([nuevoPaciente]);
+    const result = await crearPacienteAction(nuevoPaciente);
 
-    if (!error) {
-      addToast({ title: "Paciente registrado", description: "El paciente se guardó correctamente.", color: "success" });
+    if (result.success) {
+      addToast({ title: "Paciente registrado", description: "El paciente se guardó correctamente.", color: "primary" });
       mutate(); 
       setModalNuevo(false);
       setNuevoPaciente({ dni: "", nombre: "", apellido: "", telefono: "" });
     } else {
-      addToast({ title: "Error", description: "No se pudo registrar al paciente.", color: "danger" }); //
+      addToast({ title: "Error", description: result.error || "No se pudo registrar al paciente.", color: "danger" });
     }
   };
 
   const eliminarPaciente = async () => {
     if (!pacienteAEliminar) return;
-    const { error } = await supabase.from("pacientes").delete().eq("id", pacienteAEliminar.id);
 
-    if (error) {
-      addToast({ title: "Error", description: error.message, color: "danger" }); //
-    } else {
-      addToast({ title: "Paciente eliminado", description: "El registro ha sido borrado.", color: "success" });
+    const result = await eliminarPacienteAction(pacienteAEliminar.id);
+
+    if (result.success) {
+      addToast({ title: "Paciente eliminado", description: "El registro ha sido borrado.", color: "primary" });
       mutate();
       onDeleteClose();
+    } else {
+      addToast({ title: "Error", description: result.error || "Hubo un problema al eliminar.", color: "danger" });
     }
   };
 
@@ -125,22 +132,19 @@ export default function TablaClientes() {
       return;
     }
 
-    const { error } = await supabase
-      .from("pacientes")
-      .update({
-        nombre: editingPaciente.nombre,
-        apellido: editingPaciente.apellido,
-        dni: editingPaciente.dni,
-        telefono: editingPaciente.telefono,
-      })
-      .eq("id", editingPaciente.id);
+    const result = await actualizarPacienteAction(editingPaciente.id, {
+      nombre: editingPaciente.nombre,
+      apellido: editingPaciente.apellido,
+      dni: editingPaciente.dni,
+      telefono: editingPaciente.telefono,
+    });
 
-    if (!error) {
-      addToast({ title: "Cambios guardados", description: "La información se actualizó con éxito.", color: "success" });
+    if (result.success) {
+      addToast({ title: "Cambios guardados", description: "La información se actualizó con éxito.", color: "primary" });
       mutate();
       onEditClose();
     } else {
-      addToast({ title: "Error", description: "Hubo un problema al actualizar los datos.", color: "danger" });
+      addToast({ title: "Error", description: result.error || "Hubo un problema al actualizar los datos.", color: "danger" });
     }
   };
 

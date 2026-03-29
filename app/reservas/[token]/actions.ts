@@ -2,10 +2,19 @@
 
 import { revalidatePath } from "next/cache";
 
-import { createClient } from "@/utils/supabase/server";
+import { createClient } from "@supabase/supabase-js";
+
+// Cliente con service role — bypasea RLS intencionalmente.
+// El token UUID actúa como credencial implícita del paciente.
+function createServiceClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 export async function confirmarReserva(token: string) {
-  const supabase = await createClient();
+  const supabase = await createServiceClient();
 
   await supabase
     .from("reservas")
@@ -17,7 +26,7 @@ export async function confirmarReserva(token: string) {
 }
 
 export async function cancelarReserva(token: string) {
-  const supabase = await createClient();
+  const supabase = await createServiceClient();
 
   await supabase
     .from("reservas")

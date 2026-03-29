@@ -27,6 +27,7 @@ import { useCalendarStore } from "../store/calendar-store";
 import { createClient } from "@/utils/supabase/client";
 import { CalendarEvent } from "@/types/types";
 import { enviarNotificacionWhatsApp } from "@/app/meta-actions";
+import { actualizarReservaAction, eliminarReservaAction } from "@/app/actions/reservas-actions";
 
 interface EventSheetProps {
   event: CalendarEvent | null;
@@ -97,17 +98,14 @@ export function EventSheet({ event, open, onOpenChange }: EventSheetProps) {
       nuevaHoraInicio !== event.startTime || 
       nuevaHoraFin !== event.endTime;
 
-    const { error: updateError } = await supabase
-      .from("reservas")
-      .update({
-        reserva_fecha: nuevaFecha,
-        hora_inicio: nuevaHoraInicio,
-        hora_fin: nuevaHoraFin,
-        notas: editNotes
-      })
-      .eq("id", event.id);
+    const result = await actualizarReservaAction(event.id, {
+      reserva_fecha: nuevaFecha,
+      hora_inicio: nuevaHoraInicio,
+      hora_fin: nuevaHoraFin,
+      notas: editNotes
+    });
 
-    if (!updateError) {
+    if (result.success) {
       // 3. Solo enviamos el WhatsApp si cambió el horario/fecha
       if (huboCambioHorario) {
         await enviarNotificacionWhatsApp(event.id, 'actualizacion');
@@ -116,13 +114,13 @@ export function EventSheet({ event, open, onOpenChange }: EventSheetProps) {
       addToast({ 
         title: "Turno actualizado", 
         description: "Los cambios se guardaron correctamente.", 
-        color: "success" 
+        color: "primary" 
       });
 
       // No llamar a mutate acá. Realtime ya va a actualizar el cache.
       setIsEditing(false);
     } else {
-      addToast({ title: "Error al actualizar", description: updateError.message, color: "danger" });
+      addToast({ title: "Error al actualizar", description: result.error, color: "danger" });
     }
 
     setUpdating(false);
@@ -133,25 +131,22 @@ export function EventSheet({ event, open, onOpenChange }: EventSheetProps) {
     
     setStatusUpdating(status); // Marcamos específicamente este estado como "cargando"
     
-    const { error } = await supabase
-      .from("reservas")
-      .update({ estado: status })
-      .eq("id", event.id);
+    const result = await actualizarReservaAction(event.id, { estado: status });
 
-    if (!error) {
+    if (result.success) {
       const startDate = format(currentWeekStart, "yyyy-MM-dd");
       const endDate = format(endOfWeek(currentWeekStart, { weekStartsOn: 1 }), "yyyy-MM-dd");
 
       addToast({ 
         title: "Estado actualizado", 
         description: `El turno ahora está ${status}.`, 
-        color: "success" 
+        color: "primary" 
       });
 
       await mutate(['reservas-semana', startDate, endDate]);
       onOpenChange(false);
     } else {
-      addToast({ title: "Error", description: "No se pudo cambiar el estado.", color: "danger" });
+      addToast({ title: "Error", description: result.error || "No se pudo cambiar el estado.", color: "danger" });
     }
     
     setStatusUpdating(null); // Limpiamos el estado de carga
@@ -162,26 +157,23 @@ export function EventSheet({ event, open, onOpenChange }: EventSheetProps) {
     if (!event) return;
     setIsDeleting(true);
     
-    const { error } = await supabase
-      .from("reservas")
-      .delete()
-      .eq("id", event.id);
+    const result = await eliminarReservaAction(event.id);
 
-    if (!error) {
+    if (result.success) {
       const startDate = format(currentWeekStart, "yyyy-MM-dd");
       const endDate = format(endOfWeek(currentWeekStart, { weekStartsOn: 1 }), "yyyy-MM-dd");
 
       addToast({ 
         title: "Turno eliminado", 
         description: "La reserva ha sido quitada del calendario.", 
-        color: "success" 
+        color: "primary" 
       });
 
       await mutate(['reservas-semana', startDate, endDate]);
       setIsDeleteModalOpen(false); // ← cierra el modal de confirmación
       onOpenChange(false);         // ← cierra el drawer
     } else {
-      addToast({ title: "Error al eliminar", description: error.message, color: "danger" }); 
+      addToast({ title: "Error al eliminar", description: result.error, color: "danger" }); 
     }
     
     setIsDeleting(false);

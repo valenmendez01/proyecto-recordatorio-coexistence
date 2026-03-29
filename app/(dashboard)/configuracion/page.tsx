@@ -499,6 +499,7 @@ export default function ConfigPage() {
                           showShadow
                           color="primary"
                           page={page}
+                          radius="full"
                           total={pages}
                           onChange={setPage}
                         />

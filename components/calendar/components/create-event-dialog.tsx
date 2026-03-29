@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { I18nProvider } from "@react-aria/i18n";
 import { Button } from "@heroui/button";
 import { Input } from "@heroui/input";
@@ -16,8 +16,8 @@ import {
 } from "@heroui/modal";
 import { parseDate, getLocalTimeZone, today, Time } from "@internationalized/date";
 import { Search, AlertCircle } from "lucide-react";
-import { useSWRConfig } from 'swr';
-import { format, endOfWeek, startOfWeek } from "date-fns";
+import { format } from "date-fns";
+import { addToast } from "@heroui/toast";
 
 import { useCalendarStore } from "../store/calendar-store";
 import { useIsMobile } from "../hooks/use-mobile";
@@ -25,7 +25,9 @@ import { useIsMobile } from "../hooks/use-mobile";
 import { createClient } from "@/utils/supabase/client";
 import { Paciente } from "@/types/types";
 import { enviarNotificacionWhatsApp } from "@/app/meta-actions";
-import { addToast } from "@heroui/toast";
+import { crearReservaAction } from "@/app/actions/reservas-actions";
+
+
 
 interface CreateEventDialogProps {
   open: boolean;
@@ -34,7 +36,6 @@ interface CreateEventDialogProps {
 
 export function CreateEventDialog({ open, onOpenChange }: CreateEventDialogProps) {
   const supabase = createClient();
-  const { mutate } = useSWRConfig();
   const { goToDate, currentWeekStart } = useCalendarStore();
 
   // --- ESTADOS DEL FORMULARIO ---
@@ -56,6 +57,19 @@ export function CreateEventDialog({ open, onOpenChange }: CreateEventDialogProps
   const [isSearchingClient, setIsSearchingClient] = useState(false);
   const [mensajeError, setMensajeError] = useState("");
   const isMobile = useIsMobile();
+
+  useEffect(() => {
+    if (!open) {
+      setDate(new Date());
+      setHoraInicio(new Time(9, 0));
+      setHoraFin(new Time(10, 0));
+      setPacientesSugeridos([]);
+      setClienteEncontrado(null);
+      setNotas("");
+      setInputValue("");
+      setMensajeError("");
+    }
+  }, [open]);
 
   const buscarPacientes = async (texto: string) => {
     if (texto.length < 2) {
@@ -128,36 +142,31 @@ export function CreateEventDialog({ open, onOpenChange }: CreateEventDialogProps
 
     const fechaStr = format(date, "yyyy-MM-dd");
 
-    // Insertamos una sola vez pidiendo que nos devuelva la fila creada
-    const { data: nuevaReserva, error: insertError } = await supabase
-      .from("reservas")
-      .insert({
-        paciente_id: clienteEncontrado.id,
-        reserva_fecha: fechaStr,
-        hora_inicio: horaInicio.toString().slice(0, 5),
-        hora_fin: horaFin.toString().slice(0, 5),
-        estado: "reservado",
-        notas: notas || "Sin notas",
-      })
-      .select()
-      .single();
+    const result = await crearReservaAction({
+      paciente_id: clienteEncontrado.id,
+      reserva_fecha: fechaStr,
+      hora_inicio: horaInicio.toString().slice(0, 5),
+      hora_fin: horaFin.toString().slice(0, 5),
+      estado: "reservado",
+      notas: notas || "Sin notas",
+    });
 
-    if (insertError) {
-      addToast({ title: "Error al crear la reserva", description: insertError.message, color: "danger" });
+    if (result.error) {
+      addToast({ title: "Error al crear el turno", description: result.error, color: "danger" });
       setIsLoading(false);
 
       return;
     }
 
     // Si llegamos aquí, la reserva se creó correctamente
-    if (nuevaReserva) {
+    if (result.data) {
       addToast({ 
-        title: "Cita agendada", 
+        title: "Turno agendado", 
         description: "El turno se creó correctamente.", 
-        color: "success" 
+        color: "primary" 
       });
       
-      enviarNotificacionWhatsApp(nuevaReserva.id, 'reserva')
+      enviarNotificacionWhatsApp(result.data.id, 'reserva')
         .then(res => {
           if (res.error) addToast({ 
             title: "Turno creado, pero no se pudo enviar el WhatsApp", 
@@ -167,8 +176,8 @@ export function CreateEventDialog({ open, onOpenChange }: CreateEventDialogProps
         });
 
       if (date) goToDate(date);
+
       onOpenChange(false);
-      // Sin mutate — el Realtime se encarga
     }
 
     setIsLoading(false);
