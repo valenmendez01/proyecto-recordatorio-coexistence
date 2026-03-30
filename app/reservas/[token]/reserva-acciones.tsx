@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@heroui/button";
-import { CheckCircle, XCircle, Clock } from "lucide-react";
+import { CheckCircle, XCircle, Clock, AlertCircle } from "lucide-react";
 import { useState, useTransition } from "react";
 
 import { confirmarReserva, cancelarReserva } from "./actions";
@@ -16,9 +16,15 @@ interface Props {
 export default function ReservaAcciones({ token, estado, expirado, yaProcesado }: Props) {
   const [isPending, startTransition] = useTransition();
   const [loadingAction, setLoadingAction] = useState<"confirmar" | "cancelar" | null>(null);
+  // ✅ Estado local optimista: evita que el server rerender tarde en mostrar el nuevo estado
+  const [estadoLocal, setEstadoLocal] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  if (yaProcesado) {
-    const esConfirmado = estado === "confirmado";
+  const estadoEfectivo = estadoLocal ?? estado;
+  const yaProcesadoEfectivo = yaProcesado || estadoLocal !== null;
+
+  if (yaProcesadoEfectivo) {
+    const esConfirmado = estadoEfectivo === "confirmado";
 
     return (
       <div className={`flex items-center gap-3 rounded-xl p-4 ${esConfirmado ? "bg-success-50 text-success-700" : "bg-danger-50 text-danger-700"}`}>
@@ -45,6 +51,13 @@ export default function ReservaAcciones({ token, estado, expirado, yaProcesado }
   return (
     <div className="flex flex-col gap-3">
       <p className="text-sm text-default-500">¿Podés asistir a tu turno?</p>
+      {errorMsg && (
+        <div className="flex items-center gap-2 rounded-xl p-3 bg-danger-50 text-danger-700 text-sm">
+          <AlertCircle className="size-4 shrink-0" />
+          {errorMsg}
+        </div>
+      )}
+
       <Button
         className="w-full"
         color="success"
@@ -54,8 +67,15 @@ export default function ReservaAcciones({ token, estado, expirado, yaProcesado }
         variant="flat"
         onPress={() => {
           setLoadingAction("confirmar");
+          setErrorMsg(null);
           startTransition(async () => {
-            await confirmarReserva(token);
+            const result = await confirmarReserva(token);
+
+            if (result?.error) {
+              setErrorMsg(result.error);
+            } else {
+              setEstadoLocal("confirmado");
+            }
             setLoadingAction(null);
           });
         }}
@@ -71,8 +91,15 @@ export default function ReservaAcciones({ token, estado, expirado, yaProcesado }
         variant="flat"
         onPress={() => {
           setLoadingAction("cancelar");
+          setErrorMsg(null);
           startTransition(async () => {
-            await cancelarReserva(token);
+            const result = await cancelarReserva(token);
+
+            if (result?.error) {
+              setErrorMsg(result.error);
+            } else {
+              setEstadoLocal("cancelado");
+            }
             setLoadingAction(null);
           });
         }}

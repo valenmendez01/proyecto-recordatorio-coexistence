@@ -11,7 +11,7 @@ export async function crearReservaAction(nuevaReserva: ReservaInsert) {
   
   const { data, error } = await supabase
     .from("reservas")
-    .insert([nuevaReserva])
+    .insert([{ ...nuevaReserva, perfil_id: user.id }])
     .select()
     .single();
 
@@ -33,7 +33,8 @@ export async function actualizarReservaAction(id: string, datosActualizados: Res
   const { error } = await supabase
     .from("reservas")
     .update(datosActualizados)
-    .eq("id", id);
+    .eq("id", id)
+    .eq("perfil_id", user.id);
 
   if (error) {
     console.error(error.message);
@@ -50,7 +51,7 @@ export async function eliminarReservaAction(id: string) {
 
   if (!user) return { error: "No autorizado" };
   
-  const { error } = await supabase.from("reservas").delete().eq("id", id);
+  const { error } = await supabase.from("reservas").delete().eq("id", id).eq("perfil_id", user.id);
   
   if (error) {
     console.error(error.message);

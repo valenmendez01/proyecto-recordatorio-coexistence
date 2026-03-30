@@ -1,6 +1,7 @@
 -- Tabla de Reservas
 CREATE TABLE public.reservas (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  perfil_id UUID NOT NULL REFERENCES public.perfiles(id) ON DELETE CASCADE,
   paciente_id UUID NOT NULL REFERENCES public.pacientes(id) ON DELETE CASCADE,
   reserva_fecha DATE NOT NULL,
   hora_inicio TIME NOT NULL,
@@ -12,7 +13,7 @@ CREATE TABLE public.reservas (
 );
 
 -- Índice para la agenda
-CREATE INDEX IF NOT EXISTS idx_reservas_agenda ON public.reservas(reserva_fecha, hora_inicio);
+CREATE INDEX IF NOT EXISTS idx_reservas_agenda ON public.reservas(perfil_id, reserva_fecha, hora_inicio);
 -- Índice para búsquedas rápidas por token
 CREATE INDEX IF NOT EXISTS idx_reservas_token ON public.reservas(token);
 
@@ -20,17 +21,10 @@ CREATE INDEX IF NOT EXISTS idx_reservas_token ON public.reservas(token);
 ALTER TABLE public.reservas ENABLE ROW LEVEL SECURITY;
 
 -- Políticas para Reservas (Solo el Admin gestiona la agenda)
-CREATE POLICY "Admin ve reservas" 
-  ON public.reservas FOR SELECT USING (es_admin());
-
-CREATE POLICY "Admin crea reservas" 
-  ON public.reservas FOR INSERT WITH CHECK (es_admin());
-
-CREATE POLICY "Admin edita reservas" 
-  ON public.reservas FOR UPDATE USING (es_admin());
-
-CREATE POLICY "Admin borra reservas" 
-  ON public.reservas FOR DELETE USING (es_admin());
+CREATE POLICY "Profesional gestiona su propia agenda" 
+  ON public.reservas FOR ALL 
+  USING (es_admin() AND auth.uid() = perfil_id)
+  WITH CHECK (es_admin() AND auth.uid() = perfil_id);
 
 -- HABILIAR REALTIME para la tabla de reservas
 ALTER TABLE public.reservas ENABLE REPLICATION;

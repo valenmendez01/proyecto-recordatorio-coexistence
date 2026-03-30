@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-
 import { createClient } from "@supabase/supabase-js";
 
 // Cliente con service role — bypasea RLS intencionalmente.
@@ -14,25 +13,41 @@ function createServiceClient() {
 }
 
 export async function confirmarReserva(token: string) {
-  const supabase = await createServiceClient();
+  const supabase = createServiceClient();
 
-  await supabase
+  const { error } = await supabase
     .from("reservas")
     .update({ estado: "confirmado" })
     .eq("token", token)
     .eq("estado", "reservado");
 
+  if (error) {
+    console.error("[confirmarReserva]", error.message);
+
+    return { error: "No se pudo confirmar la reserva. Intentá de nuevo." };
+  }
+
   revalidatePath(`/reservas/${token}`);
+
+  return { success: true };
 }
 
 export async function cancelarReserva(token: string) {
-  const supabase = await createServiceClient();
+  const supabase = createServiceClient();
 
-  await supabase
+  const { error } = await supabase
     .from("reservas")
     .update({ estado: "cancelado" })
     .eq("token", token)
     .eq("estado", "reservado");
 
+  if (error) {
+    console.error("[cancelarReserva]", error.message);
+
+    return { error: "No se pudo cancelar la reserva. Intentá de nuevo." };
+  }
+
   revalidatePath(`/reservas/${token}`);
+
+  return { success: true };
 }

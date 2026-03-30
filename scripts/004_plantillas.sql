@@ -10,5 +10,7 @@ CREATE TABLE public.plantillas (
 
 ALTER TABLE public.plantillas ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Admin gestiona sus plantillas" 
-  ON public.plantillas FOR ALL USING (es_admin());
+CREATE POLICY "Profesional gestiona sus propias plantillas" 
+  ON public.plantillas FOR ALL 
+  USING (es_admin() AND auth.uid() = perfil_id)
+  WITH CHECK (es_admin() AND auth.uid() = perfil_id);

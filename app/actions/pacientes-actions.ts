@@ -9,7 +9,7 @@ export async function crearPacienteAction(nuevoPaciente: PacienteInsert) {
 
   if (!user) return { error: "No autorizado" };
   
-  const { error } = await supabase.from("pacientes").insert([nuevoPaciente]);
+  const { error } = await supabase.from("pacientes").insert([{ ...nuevoPaciente, perfil_id: user.id }]);
 
   if (error) {
     console.error(error.message);
@@ -29,7 +29,8 @@ export async function actualizarPacienteAction(id: string, datosActualizados: Pa
   const { error } = await supabase
     .from("pacientes")
     .update(datosActualizados)
-    .eq("id", id);
+    .eq("id", id)
+    .eq("perfil_id", user.id);
 
   if (error) {
     console.error(error.message);
@@ -46,7 +47,7 @@ export async function eliminarPacienteAction(id: string) {
 
   if (!user) return { error: "No autorizado" };
   
-  const { error } = await supabase.from("pacientes").delete().eq("id", id);
+  const { error } = await supabase.from("pacientes").delete().eq("id", id).eq("perfil_id", user.id);
   
   if (error) {
     console.error(error.message);

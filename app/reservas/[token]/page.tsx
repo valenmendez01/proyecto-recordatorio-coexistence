@@ -58,7 +58,7 @@ export default async function ReservaPublicaPage({ params }: Props) {
               Hola, {paciente?.nombre} {paciente?.apellido}
             </h1>
             <p className="text-default-600 mt-1">
-              Tu turno está agendado para mañana, día{" "}
+              Tu turno está agendado para el{" "}
               <span className="font-medium text-foreground">{fechaFormateada}</span>.
             </p>
           </div>

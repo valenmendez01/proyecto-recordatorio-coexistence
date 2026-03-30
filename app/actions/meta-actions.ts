@@ -408,11 +408,15 @@ export async function registrarPlantillaMeta(header: string, body: string) {
 export async function enviarNotificacionWhatsApp(reservaId: string, tipo: 'reserva' | 'actualizacion' | 'recordatorio', supabaseClient?: any) {
   const supabase = supabaseClient || await createClient();
   
-  // 1. Obtenemos el perfil directamente (al ser único, tomamos el primero que encuentre)
+  // 1. obtener el usuario autenticado y su perfil específico
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) return { error: "No autenticado" };
+
   const { data: perfil, error: perfilError } = await supabase
     .from("perfiles")
     .select("*")
-    .limit(1)
+    .eq("id", user.id)
     .single();
 
   if (perfilError || !perfil) {
@@ -428,6 +432,7 @@ export async function enviarNotificacionWhatsApp(reservaId: string, tipo: 'reser
     .from("reservas")
     .select(`*, paciente:pacientes(*)`)
     .eq("id", reservaId)
+    .eq("perfil_id", user.id)
     .single();
 
   if (reservaError || !reserva) {
@@ -511,6 +516,7 @@ export async function enviarNotificacionWhatsApp(reservaId: string, tipo: 'reser
   const data = await response.json();
 
   await supabase.from("notificaciones_log").insert({
+    perfil_id: perfil.id,
     reserva_id: reservaId,
     paciente_nombre: `${paciente.nombre} ${paciente.apellido}`,
     tipo: tipo,
@@ -526,10 +532,16 @@ export async function enviarNotificacionWhatsApp(reservaId: string, tipo: 'reser
 
 export async function verificarYSuscribirWaba() {
   const supabase = await createClient();
+
+  // filtrar por el usuario autenticado, no tomar el primero de la DB
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) return;
+
   const { data: perfil } = await supabase
     .from("perfiles")
     .select("whatsapp_customer_id, whatsapp_access_token")
-    .limit(1)
+    .eq("id", user.id)
     .single();
 
   if (!perfil?.whatsapp_customer_id || !perfil?.whatsapp_access_token) return;

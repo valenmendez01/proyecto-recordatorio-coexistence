@@ -9,29 +9,26 @@ CREATE TABLE public.perfiles (
   whatsapp_access_token TEXT
 );
 
--- 2. Tabla de Pacientes (Clientes - No tienen acceso al sistema)
+-- 2. Tabla de Pacientes (Multi-tenant)
 CREATE TABLE public.pacientes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  perfil_id UUID NOT NULL REFERENCES public.perfiles(id) ON DELETE CASCADE,
   dni VARCHAR(20) UNIQUE NOT NULL,
   nombre TEXT NOT NULL,
   apellido TEXT NOT NULL,
   telefono TEXT NOT NULL CHECK (telefono ~ '^\+?[1-9]\d{1,14}$'),
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(perfil_id, dni)
 );
 
 -- Índices para búsquedas rápidas
-CREATE INDEX IF NOT EXISTS idx_pacientes_dni ON public.pacientes(dni);
+CREATE INDEX IF NOT EXISTS idx_pacientes_perfil_dni ON public.pacientes(perfil_id, dni);
 
 -- Habilitamos RLS
 ALTER TABLE public.perfiles ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Usuario lee su propio perfil"
-  ON public.perfiles FOR SELECT
-  USING (auth.uid() = id);
-
-CREATE POLICY "Usuario actualiza su propio perfil"
-  ON public.perfiles FOR UPDATE
-  USING (auth.uid() = id);
+CREATE POLICY "Usuario lee su propio perfil" ON public.perfiles FOR SELECT USING (auth.uid() = id);
+CREATE POLICY "Usuario actualiza su propio perfil" ON public.perfiles FOR UPDATE USING (auth.uid() = id);
 
 -- Función para verificar si eres admin
 CREATE OR REPLACE FUNCTION public.es_admin()
@@ -51,15 +48,8 @@ $$;
 -- Habilitar RLS
 ALTER TABLE public.pacientes ENABLE ROW LEVEL SECURITY;
 
--- Políticas para Pacientes (Solo el Admin hace todo)
-CREATE POLICY "Admin ve pacientes" 
-  ON public.pacientes FOR SELECT USING (es_admin());
-
-CREATE POLICY "Admin crea pacientes" 
-  ON public.pacientes FOR INSERT WITH CHECK (es_admin());
-
-CREATE POLICY "Admin edita pacientes" 
-  ON public.pacientes FOR UPDATE USING (es_admin());
-
-CREATE POLICY "Admin borra pacientes" 
-  ON public.pacientes FOR DELETE USING (es_admin());
+-- Política que combina Rol + Propiedad
+CREATE POLICY "Profesional gestiona sus propios pacientes" 
+  ON public.pacientes FOR ALL 
+  USING (es_admin() AND auth.uid() = perfil_id)
+  WITH CHECK (es_admin() AND auth.uid() = perfil_id);
