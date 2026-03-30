@@ -51,6 +51,9 @@ const fetcher = async ([url, filter, page, rowsPerPage]: [string, string, number
 export default function TablaClientes() {
   // UI States
   const { filterValue, page, rowsPerPage, setFilterValue, setPage, setRowsPerPage } = usePacientesStore();
+  const [isCreating, setIsCreating] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   
   // Datos 
   const { data, error, isLoading, mutate } = useSWR(
@@ -99,29 +102,39 @@ export default function TablaClientes() {
       return;
     }
 
-    const result = await crearPacienteAction(nuevoPaciente);
+    setIsCreating(true);
+    try {
+      const result = await crearPacienteAction(nuevoPaciente);
 
-    if (result.success) {
-      addToast({ title: "Paciente registrado", description: "El paciente se guardó correctamente.", color: "primary" });
-      mutate(); 
-      setModalNuevo(false);
-      setNuevoPaciente({ dni: "", nombre: "", apellido: "", telefono: "" });
-    } else {
-      addToast({ title: "Error", description: result.error || "No se pudo registrar al paciente.", color: "danger" });
+      if (result.success) {
+        addToast({ title: "Paciente registrado", color: "primary" });
+        mutate(); 
+        setModalNuevo(false);
+        setNuevoPaciente({ dni: "", nombre: "", apellido: "", telefono: "" });
+      } else {
+        addToast({ title: "Error", description: result.error || "No se pudo registrar al paciente.", color: "danger" });
+      }
+    } finally {
+      setIsCreating(false);
     }
   };
 
   const eliminarPaciente = async () => {
     if (!pacienteAEliminar) return;
 
-    const result = await eliminarPacienteAction(pacienteAEliminar.id);
+    setIsDeleting(true);
+    try {
+      const result = await eliminarPacienteAction(pacienteAEliminar.id);
 
-    if (result.success) {
-      addToast({ title: "Paciente eliminado", description: "El registro ha sido borrado.", color: "primary" });
-      mutate();
-      onDeleteClose();
-    } else {
-      addToast({ title: "Error", description: result.error || "Hubo un problema al eliminar.", color: "danger" });
+      if (result.success) {
+        addToast({ title: "Paciente eliminado", description: "El registro ha sido borrado.", color: "primary" });
+        mutate();
+        onDeleteClose();
+      } else {
+        addToast({ title: "Error", description: result.error || "Hubo un problema al eliminar.", color: "danger" });
+      }
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -129,22 +142,28 @@ export default function TablaClientes() {
     if (!editingPaciente || !editingPaciente.id) return;
     if (!PHONE_REGEX.test(editingPaciente.telefono || "")) {
       addToast({ title: "Error en edición", description: "El formato del teléfono es inválido", color: "danger" });
+
       return;
     }
 
-    const result = await actualizarPacienteAction(editingPaciente.id, {
-      nombre: editingPaciente.nombre,
-      apellido: editingPaciente.apellido,
-      dni: editingPaciente.dni,
-      telefono: editingPaciente.telefono,
-    });
+    setIsUpdating(true);
+    try {
+      const result = await actualizarPacienteAction(editingPaciente.id, {
+        nombre: editingPaciente.nombre,
+        apellido: editingPaciente.apellido,
+        dni: editingPaciente.dni,
+        telefono: editingPaciente.telefono,
+      });
 
-    if (result.success) {
-      addToast({ title: "Cambios guardados", description: "La información se actualizó con éxito.", color: "primary" });
-      mutate();
-      onEditClose();
-    } else {
-      addToast({ title: "Error", description: result.error || "Hubo un problema al actualizar los datos.", color: "danger" });
+      if (result.success) {
+        addToast({ title: "Cambios guardados", description: "La información se actualizó con éxito.", color: "primary" });
+        mutate();
+        onEditClose();
+      } else {
+        addToast({ title: "Error", description: result.error || "Hubo un problema al actualizar los datos.", color: "danger" });
+      }
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -295,7 +314,7 @@ export default function TablaClientes() {
           </ModalBody>
           <ModalFooter>
             <Button variant="light" onPress={() => setModalNuevo(false)}>Cancelar</Button>
-            <Button color="primary" onPress={agregarPaciente}>Guardar</Button>
+            <Button color="primary" isLoading={isCreating} onPress={agregarPaciente}>Guardar</Button>
           </ModalFooter>
         </ModalContent>
       </Modal>
@@ -325,7 +344,7 @@ export default function TablaClientes() {
           </ModalBody>
           <ModalFooter>
             <Button variant="light" onPress={onEditClose}>Cancelar</Button>
-            <Button color="primary" onPress={guardarEdicion}>Actualizar</Button>
+            <Button color="primary" isLoading={isUpdating} onPress={guardarEdicion}>Actualizar</Button>
           </ModalFooter>
         </ModalContent>
       </Modal>
@@ -338,7 +357,7 @@ export default function TablaClientes() {
           </ModalBody>
           <ModalFooter>
             <Button variant="light" onPress={onDeleteClose}>Cancelar</Button>
-            <Button color="danger" onPress={eliminarPaciente}>Eliminar</Button>
+            <Button color="danger" isLoading={isDeleting} onPress={eliminarPaciente}>Eliminar</Button>
           </ModalFooter>
         </ModalContent>
       </Modal>
