@@ -16,18 +16,17 @@ import {
 } from "@heroui/modal";
 import { parseDate, getLocalTimeZone, today, Time } from "@internationalized/date";
 import { Search, AlertCircle } from "lucide-react";
-import { format } from "date-fns";
+import { format, startOfWeek, endOfWeek } from "date-fns";
 import { addToast } from "@heroui/toast";
+import { useSWRConfig } from "swr";
 
 import { useCalendarStore } from "../store/calendar-store";
 import { useIsMobile } from "../hooks/use-mobile";
 
 import { createClient } from "@/utils/supabase/client";
-import { Paciente } from "@/types/types";
+import { CalendarEvent, Paciente } from "@/types/types";
 import { enviarNotificacionWhatsApp } from "@/app/actions/meta-actions";
 import { crearReservaAction } from "@/app/actions/reservas-actions";
-
-
 
 interface CreateEventDialogProps {
   open: boolean;
@@ -36,7 +35,9 @@ interface CreateEventDialogProps {
 
 export function CreateEventDialog({ open, onOpenChange }: CreateEventDialogProps) {
   const supabase = createClient();
-  const { goToDate, currentWeekStart } = useCalendarStore();
+  const { goToDate } = useCalendarStore();
+  // mutate global de SWR: puede recibir cualquier llave del caché
+  const { mutate } = useSWRConfig();
 
   // --- ESTADOS DEL FORMULARIO ---
   const [date, setDate] = useState<Date | undefined>(new Date());
@@ -100,7 +101,6 @@ export function CreateEventDialog({ open, onOpenChange }: CreateEventDialogProps
   const handleInputChange = (value: string) => {
     if (justSelectedRef.current) {
       justSelectedRef.current = false;
-
       return;
     }
     setInputValue(value);
@@ -129,14 +129,12 @@ export function CreateEventDialog({ open, onOpenChange }: CreateEventDialogProps
     if (!date || !horaInicio || !horaFin || !clienteEncontrado) {
       setMensajeError("Faltan datos obligatorios.");
       setIsLoading(false);
-
       return;
     }
 
     if (horaFin.compare(horaInicio) <= 0) {
       setMensajeError("La hora de fin debe ser posterior a la de inicio.");
       setIsLoading(false);
-
       return;
     }
 
@@ -154,18 +152,47 @@ export function CreateEventDialog({ open, onOpenChange }: CreateEventDialogProps
     if (result.error) {
       addToast({ title: "Error al crear el turno", description: result.error, color: "danger" });
       setIsLoading(false);
-
       return;
     }
 
-    // Si llegamos aquí, la reserva se creó correctamente
     if (result.data) {
       addToast({ 
         title: "Turno agendado", 
         description: "El turno se creó correctamente.", 
         color: "primary" 
       });
-      
+
+      // ── Mutación manual ────────────────────────────────────────────────────
+      // Calculamos la llave exacta que usa CalendarView para la semana del
+      // evento creado. Esto es necesario porque Realtime no incluye el join
+      // con pacientes — si solo esperamos Realtime, el título del evento
+      // aparecería vacío hasta que SWR revalidara por su cuenta.
+      // goToDate cambia currentWeekStart en el store; mutate pre-calienta
+      // ese caché antes de que CalendarView lo solicite.
+      const eventWeekStart = startOfWeek(date, { weekStartsOn: 1 });
+      const newStartDate = format(eventWeekStart, "yyyy-MM-dd");
+      const newEndDate = format(endOfWeek(eventWeekStart, { weekStartsOn: 1 }), "yyyy-MM-dd");
+
+      // Construimos el nuevo evento con los datos que ya tenemos
+      const nuevoEvento: CalendarEvent = {
+        id: result.data.id,
+        title: `${clienteEncontrado.nombre} ${clienteEncontrado.apellido}`,
+        startTime: horaInicio.toString().slice(0, 5),
+        endTime: horaFin.toString().slice(0, 5),
+        date: fechaStr,
+        participants: [`${clienteEncontrado.nombre} ${clienteEncontrado.apellido}`],
+        status: "reservado",
+        description: notas || "Sin notas",
+      };
+
+      // Inyectamos el evento en el caché existente y luego revalidamos
+      // en background para asegurarnos de que el servidor confirme el estado.
+      mutate(
+        ['reservas-semana', newStartDate, newEndDate],
+        (cache: CalendarEvent[] | undefined) => [...(cache ?? []), nuevoEvento],
+        { revalidate: true } // fetch en background para confirmar
+      );
+
       enviarNotificacionWhatsApp(result.data.id, 'reserva')
         .then(res => {
           if (res.error) addToast({ 
@@ -175,8 +202,7 @@ export function CreateEventDialog({ open, onOpenChange }: CreateEventDialogProps
           });
         });
 
-      if (date) goToDate(date);
-
+      goToDate(date);
       onOpenChange(false);
     }
 

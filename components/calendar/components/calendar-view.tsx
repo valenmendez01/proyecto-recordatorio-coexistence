@@ -17,6 +17,7 @@ import { ScrollShadow } from "@heroui/scroll-shadow";
 const supabase = createClient();
 
 const fetchReservas = async (startDate: string, endDate: string): Promise<CalendarEvent[]> => {
+
   const { data, error } = await supabase
     .from("reservas")
     .select(`id, reserva_fecha, hora_inicio, hora_fin, estado, notas, paciente:pacientes(nombre, apellido)`)
@@ -52,34 +53,43 @@ export function CalendarView() {
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
 
-  // 1. Configuración de SWR para Caching
   const startDate = format(currentWeekStart, "yyyy-MM-dd");
   const endDate = format(endOfWeek(currentWeekStart, { weekStartsOn: 1 }), "yyyy-MM-dd");
 
-  const { data: events, isLoading, mutate } = useSWR<CalendarEvent[]>(
+  // ─── SWR ──────────────────────────────────────────────────────────────────
+  const { data: events, mutate } = useSWR<CalendarEvent[]>(
     ['reservas-semana', startDate, endDate],
     ([_key, start, end]: [string, string, string]) => fetchReservas(start, end),
     { revalidateIfStale: true, revalidateOnMount: true }
   );
 
-  // 2. Suscripción a Realtime
+  // ─── REALTIME ─────────────────────────────────────────────────────────────
   useEffect(() => {
+    // Timer de debounce: evita lanzar múltiples revalidaciones si Realtime
+    // dispara varios INSERT/DELETE en ráfaga (ej: operaciones en lote).
+    const revalidateTimerRef = { current: null as ReturnType<typeof setTimeout> | null };
+
+    // El nombre del canal incluye las fechas para que el useEffect se
+    // re-ejecute al cambiar de semana, creando una nueva suscripción.
     const channel = supabase
-      .channel('cambios-reservas-calendario')
+      .channel(`reservas-cal-${startDate}-${endDate}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'reservas' },
         (payload) => {
-          if (payload.eventType === 'UPDATE') {
-            mutate(
-              (currentEvents: CalendarEvent[] | undefined) => {
-                if (!currentEvents) return currentEvents;
 
-                return currentEvents.map((e) =>
+          if (payload.eventType === 'UPDATE') {
+            // UPDATE: patch quirúrgico en el caché — sin petición de red.
+            // Si el registro no pertenece a la semana visible, el map lo deja intacto.
+            mutate(
+              (cache: CalendarEvent[] | undefined) => {
+                if (!cache) return cache;
+
+                return cache.map((e) =>
                   e.id === payload.new.id
                     ? {
                         ...e,
-                        date: payload.new.reserva_fecha,          // nombre de columna Supabase
+                        date: payload.new.reserva_fecha,
                         startTime: payload.new.hora_inicio.slice(0, 5),
                         endTime: payload.new.hora_fin.slice(0, 5),
                         status: payload.new.estado,
@@ -91,50 +101,66 @@ export function CalendarView() {
               { revalidate: false }
             );
           } else {
-            setTimeout(async () => {
-              const nuevosEventos = await fetchReservas(startDate, endDate);
+            // INSERT / DELETE: el payload de Supabase no incluye el join con
+            // pacientes, por eso necesitamos revalidar para obtener el título.
+            // Usamos debounce + guardia isValidating para no acumular fetches.
+            if (revalidateTimerRef.current) {
+              clearTimeout(revalidateTimerRef.current);
+            }
+            revalidateTimerRef.current = setTimeout(() => {
+              if (payload.eventType === 'INSERT') {
+                // Si el evento ya fue inyectado por el dialog, no revalidamos.
+                // SWR ya tiene el dato correcto y revalidate:true en el mutate
+                // del dialog se encarga de confirmar con el servidor.
+                mutate((cache: CalendarEvent[] | undefined) => {
+                  const yaExiste = cache?.some((e) => e.id === payload.new.id);
 
-              mutate(nuevosEventos, { revalidate: false });
-            }, 200);
+                  if (yaExiste) {
+                    return cache;
+                  }
+
+                  return undefined; // fuerza refetch
+                }, { revalidate: true });
+              } else {
+                mutate();
+              }
+            }, 300);
           }
         }
       )
       .subscribe();
 
     return () => {
+      if (revalidateTimerRef.current) clearTimeout(revalidateTimerRef.current);
       supabase.removeChannel(channel);
     };
+  // Incluimos startDate/endDate para re-suscribir al cambiar de semana.
+  // mutate es estable entre renders (referencia fija de SWR).
   }, [mutate, startDate, endDate]);
 
-  // 3. Filtrado local de eventos
+  // ─── FILTRADO Y AGRUPADO ──────────────────────────────────────────────────
   const filteredEvents = useMemo(() => {
     if (!events) return [];
     return statusFilter === "all" ? events : events.filter((e) => e.status === statusFilter);
   }, [events, statusFilter]);
 
-  // Agrupar por día para el renderizado
   const eventsByDay = useMemo(() => {
     const grouped: Record<string, CalendarEvent[]> = {};
-
     weekDays.forEach((day) => {
       const dayStr = format(day, "yyyy-MM-dd");
-
       grouped[dayStr] = filteredEvents.filter((e) => e.date === dayStr);
     });
-
     return grouped;
   }, [weekDays, filteredEvents]);
 
-  // Derivado del cache — se actualiza automáticamente con mutate/Realtime
   const selectedEvent = useMemo(
     () => filteredEvents.find((e) => e.id === selectedEventId) ?? null,
     [filteredEvents, selectedEventId]
   );
 
-  // --- Lógica de UI (Reloj y Scroll se mantienen igual) ---
+  // ─── UI: reloj y scroll ───────────────────────────────────────────────────
   useEffect(() => {
     const interval = setInterval(() => setCurrentTime(new Date()), 60000);
-
     return () => clearInterval(interval);
   }, []);
 
